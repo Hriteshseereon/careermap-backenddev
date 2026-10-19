@@ -74,7 +74,7 @@ const allowedOrigins = [
   "http://localhost:5175",
   "https://careermap-user-portal.vercel.app",
   "https://careermap-admin-portal.vercel.app",
-  "https://cm-user-portal.vercel.app"
+  "https://cm-user-portal.vercel.app",
   // NOTE (security review): temporary ngrok tunnel origin. Remove it once it is no longer needed.
   "https://unregarded-shameka-forensically.ngrok-free.dev"
 ];
