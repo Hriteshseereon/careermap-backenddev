@@ -1,0 +1,1255 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model profile {
+  id        Int      @id @default(autoincrement())
+  class     String
+  stream    String
+  interest  String[] // Accepts an array of strings in PostgreSQL
+  clarity   String
+  strength  String[] // Accepts an array of strings in PostgreSQL
+  priority  String[] // Accepts an array of strings in PostgreSQL
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Foreign key definition
+  userId Int   @unique @map("userId")
+  user   Users @relation(fields: [userId], references: [id])
+}
+
+model AdminUsers {
+  id        Int      @id @default(autoincrement())
+  firstName String?
+  lastName  String?
+  username  String?
+  email     String   @unique
+  password  String
+  role      String   @default("admin")
+   loginAttempts Int      @default(0)
+  lockedUntil   DateTime?
+    resetToken String?
+  resetTokenExpiry DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+ sessions AdminSession[]
+}
+model AdminSession {
+  id Int @id @default(autoincrement())
+
+  adminId Int
+
+  refreshToken String @unique
+
+  deviceInfo String?
+
+  ipAddress String?
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  admin AdminUsers @relation(fields: [adminId],references: [id],onDelete: Cascade)
+}
+model Users {
+  id          Int       @id @default(autoincrement())
+  firstName   String?
+  lastName    String?
+  username    String
+  email       String    @unique
+  password    String
+  isupgraded  Boolean   @default(false)
+  country     String?
+  state       String?
+  city        String?
+  district    String?
+  gender      String?
+  address     String?
+  dataOfBirth DateTime?
+  image       String?
+  mobile      String
+  instituteId Int?
+
+  isInstituteStudent Boolean         @default(false)
+  status             String?         @default("active")
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  subscription       Subscriptions[]
+  institute          Institutes?     @relation(fields: [instituteId], references: [id])
+
+  // Prisma relation field (does not create a column in the DB)
+  profile          profile?
+  payments         Payment[]
+  mentorPayments   Mentorpayment[]
+  mentorBoookings  Mentorbooking[]
+  consultations    StudyAbroadConsult[]
+  quizattempt      QuizAttempt[]
+  userloginhistory UserLoginHistory[]
+  helpandSupport   HelpAndSupport[]
+  moduleAccess     ModuleAccess[]
+  previewSessions  PreviewSession[]
+   reviews MentorReview[]
+   psychometricAssessments PsychometricAssessment[]
+   assessmentAttempts AssessmentAttempt[]
+}
+
+model Subscriptions {
+  id              Int      @id @default(autoincrement())
+  userId          Int
+  planId          Int
+  planType        String?
+  startDate       DateTime
+  endDate         DateTime
+  amount          Float
+  status          String
+  stripeSessionId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Prisma relation field (does not create a column in the DB)
+  user Users @relation(fields: [userId], references: [id])
+  plan Plans @relation(fields: [planId], references: [id])
+}
+
+model Payment {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  planId    Int
+  amount    Float
+  stripeId  String?
+  status    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Prisma relation field (does not create a column in the DB)
+  user Users @relation(fields: [userId], references: [id])
+  plan Plans @relation(fields: [planId], references: [id])
+}
+
+model Stream {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  image     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  categories   Category[]
+  details      Details[]
+  entranceexam EntranceExam[]
+}
+
+model Institutions {
+  id                Int             @id @default(autoincrement())
+  name              String          @unique
+  logo              String?
+  address           String?
+  admission_process String?
+  tentative_date    String?
+  institute_type    String?
+  categoryId        Int?
+  secondcategoryId  Int?
+  subcategoryId     Int?
+  category          Category?       @relation(fields: [categoryId], references: [id])
+  secondcategory    Secondcategory? @relation(fields: [secondcategoryId], references: [id])
+  subcategory       Subcategory?    @relation(fields: [subcategoryId], references: [id])
+  url               String?
+  countruy          String?
+  state             String?
+  city              String?
+  district          String?
+  about             String?
+  course_offered    String[]
+  is_top            Boolean         @default(false)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  details Details[]
+}
+
+model Category {
+  id       Int @id @default(autoincrement())
+  streamId Int
+
+  title            String @unique
+  path             String?
+  file             String?
+  coverImage       String?
+  description      String?
+  specialization   String?
+  importandt_facts String[]
+  category_access  Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // relation fields
+  stream Stream @relation(fields: [streamId], references: [id])
+
+  secondCategories  Secondcategory[]
+  subcategories     Subcategory[]
+  details           Details[]
+  careerpath        CareerPath[]
+  entranceexam      EntranceExam[]
+  mentors           Mentor[]
+  scholarships      Scholarship[]
+  institutions_list Institutions[]
+}
+
+model Secondcategory {
+  id         Int @id @default(autoincrement())
+  categoryId Int
+
+  name             String
+  path             String?
+  image            String?
+  coverImage       String?
+  description      String?
+  specialization   String?
+  importandt_facts String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 🔗 Relation
+  category Category @relation(fields: [categoryId], references: [id])
+
+  subcategories     Subcategory[]
+  details           Details[]
+  careerpath        CareerPath[]
+  entranceexam      EntranceExam[]
+  scholarships      Scholarship[]
+  institutions_list Institutions[]
+  mentor            Mentor[]
+}
+
+model Subcategory {
+  id               Int @id @default(autoincrement())
+  categoryId       Int
+  secondcategoryId Int
+
+  title            String
+  path             String?
+  file             String?
+  coverImage       String?
+  description      String?
+  specialization   String?
+  importandt_facts String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 🔗 Relations
+  category       Category       @relation(fields: [categoryId], references: [id])
+  secondcategory Secondcategory @relation(fields: [secondcategoryId], references: [id])
+
+  details           Details[]
+  careerpath        CareerPath[]
+  entranceexam      EntranceExam[]
+  mentors           Mentor[]
+  scholarships      Scholarship[]
+  institutions_list Institutions[]
+}
+
+// module schema 
+
+model Module {
+  id           Int            @id @default(autoincrement())
+  title        String
+  url          String?
+  image        String?
+  btn_text     String?
+  position     String?
+  markas_free  Boolean        @default(false)
+  freePreview  Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  careerpath   CareerPath[]
+  entranceexam EntranceExam[]
+  plans           Plans[]
+  moduleAccess    ModuleAccess[]
+  previewSessions PreviewSession[]
+}
+
+model ModuleAccess {
+  id Int @id @default(autoincrement())
+
+  userId   Int
+  moduleId Int
+
+  freeVisitUsed Boolean @default(false)
+
+  user Users @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, moduleId])
+}
+
+model PreviewSession {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  moduleId  Int
+  pageType  String
+  pageId    Int
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user   Users  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@index([userId, moduleId, pageType, pageId])
+  @@index([expiresAt])
+}
+
+// details scheama design 
+
+  model Details {
+    id Int @id @default(autoincrement())
+
+    // Foreign Keys (still single)
+    streamId         Int?
+    categoryId       Int?
+    secondcategoryId Int?
+    subcategoryId    Int?
+
+    // Relations (single)
+    stream         Stream?         @relation(fields: [streamId], references: [id])
+    category       Category?       @relation(fields: [categoryId], references: [id])
+    secondcategory Secondcategory? @relation(fields: [secondcategoryId], references: [id])
+    subcategory    Subcategory?    @relation(fields: [subcategoryId], references: [id])
+
+    // ✅ MANY-TO-MANY RELATIONS
+    careerpaths   CareerPath[]
+    entranceexams EntranceExam[]
+    institutions  Institutions[]
+
+    // Salary
+    salaryRanges SalaryRange[]
+
+    // Array field
+    jobScope String[]
+     specialization   String?     
+  important_factor String? 
+   media String?
+    description String?
+    descriptions DetailDescription[]
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@unique([streamId, categoryId, secondcategoryId, subcategoryId])
+    // Indexes (optional but recommended)
+    @@index([streamId])
+    @@index([categoryId])
+    @@index([secondcategoryId])
+    @@index([subcategoryId])
+  }
+
+model DetailDescription {
+  id          Int      @id @default(autoincrement())
+  detailsId   Int
+  title       String
+  description String
+  sortOrder   Int      @default(0)
+
+  details Details @relation(fields: [detailsId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([detailsId])
+}
+model SalaryRange {
+  id        Int     @id @default(autoincrement())
+  profession String?
+  minSalary Float
+  maxSalary Float
+  currency  String  @default("INR")
+  detailsId Int
+  details   Details @relation(fields: [detailsId], references: [id], onDelete: Cascade)
+}
+
+model PathType {
+  id         Int          @id @default(autoincrement())
+  pathtype   String?
+  careerpath CareerPath[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CareerPath {
+  id               Int     @id @default(autoincrement())
+  pathName         String? @unique
+  moduleId         Int?
+  categoryId       Int?
+  secondcategoryId Int?
+  subcategoryId    Int?
+  pathId           Int?
+
+  module         Module?         @relation(fields: [moduleId], references: [id])
+  category       Category?       @relation(fields: [categoryId], references: [id])
+  secondcategory Secondcategory? @relation(fields: [secondcategoryId], references: [id])
+  subcategory    Subcategory?    @relation(fields: [subcategoryId], references: [id])
+  path           PathType?       @relation(fields: [pathId], references: [id])
+
+  graduation          String?
+  aftergraduation     String?
+  afterpostgraduation String?
+  anyother            String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  details Details[]
+}
+
+model EntranceExam {
+  id Int @id @default(autoincrement())
+
+  moduleId         Int?
+  streamId         Int?
+  categoryId       Int?
+  secondcategoryId Int?
+  subcategoryId    Int?
+
+  module         Module?         @relation(fields: [moduleId], references: [id])
+  stream         Stream?         @relation(fields: [streamId], references: [id])
+  category       Category?       @relation(fields: [categoryId], references: [id])
+  secondcategory Secondcategory? @relation(fields: [secondcategoryId], references: [id])
+  subcategory    Subcategory?    @relation(fields: [subcategoryId], references: [id])
+
+  examname        String    @unique
+  issuedate       DateTime?
+  lastdate        DateTime?
+  url             String?
+  about           String?
+  eligibility     String?
+  exam_date       DateTime?
+  mode            String?
+  duration        String?
+  subject         String[]
+  total_mark      String?
+  frequncy        String?
+  exam_pattern    String?
+  top_institution String[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  details Details[]
+}
+
+// mentor model  
+
+model Mentor {
+  id Int @id @default(autoincrement())
+
+  categoryId    Int?
+  subCategoryId Int?
+   secondcategoryId Int?
+
+  name         String?
+  email        String?
+  phone_number String?
+  dateof_birth DateTime?
+  designation  String?
+  education    String?
+  placeof_word String?
+  linkedin     String?
+  facebook     String?
+  skill        String?
+  experience   Int?
+  mentor_fees  String?
+  rank         String?
+
+  image       String?
+  resume      String?
+  year        String?
+  description String?
+  status      Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  category    Category?    @relation(fields: [categoryId], references: [id])
+  subcategory Subcategory? @relation(fields: [subCategoryId], references: [id])
+  secondcategory Secondcategory? @relation(fields: [secondcategoryId], references: [id])
+
+  // 🔥 NEW RELATION
+  availability MentorAvailability[]
+  bookings     Mentorbooking[]
+   reviews MentorReview[]
+}
+
+model MentorAvailability {
+  id Int @id @default(autoincrement())
+
+  mentorId  Int
+  date      DateTime
+  timeSlots String[] // ["10:00", "11:00", "15:00"]
+
+  mentor Mentor @relation(fields: [mentorId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+enum BookingStatus {
+  pending
+  confirmed
+  cancelled
+}
+
+enum PaymentStatus {
+  pending
+  paid
+  failed
+}
+
+model Mentorbooking {
+  id Int @id @default(autoincrement())
+
+  userId   Int
+  mentorId Int
+
+  date     DateTime
+  timeSlot String
+
+  status        BookingStatus @default(pending)
+  paymentStatus PaymentStatus @default(pending)
+
+  amount Float?
+  reviewSubmitted Boolean @default(false)
+  createdAt DateTime @default(now())
+
+  user   Users  @relation(fields: [userId], references: [id])
+  mentor Mentor @relation(fields: [mentorId], references: [id], onDelete: Cascade)
+
+  payment Mentorpayment? @relation("BookingPayment")
+
+  @@unique([mentorId, date, timeSlot])
+   reviews MentorReview[]
+}
+
+model Mentorpayment {
+  id Int @id @default(autoincrement())
+
+  bookingId Int @unique
+  userId    Int
+
+  amount   Float
+  currency String @default("INR")
+
+  paymentId String?
+  orderId   String?
+
+  status PaymentStatus @default(pending)
+
+  createdAt DateTime @default(now())
+
+  booking Mentorbooking @relation("BookingPayment", fields: [bookingId], references: [id])
+  user    Users         @relation(fields: [userId], references: [id])
+}
+model MentorReview {
+  id Int @id @default(autoincrement())
+
+  mentorId Int
+  userId Int
+  bookingId Int @unique
+
+  rating Int // 1-5
+
+  review String?
+
+  createdAt DateTime @default(now())
+
+  mentor Mentor @relation(fields:[mentorId], references:[id], onDelete: Cascade)
+
+  user Users @relation(fields:[userId], references:[id])
+
+  booking Mentorbooking @relation(fields:[bookingId], references:[id])
+
+  @@index([mentorId])
+}
+model Scholarship {
+  id               Int             @id @default(autoincrement())
+  name             String          @unique
+  type             String?
+  url              String?
+  is_free          Boolean         @default(false)
+  price            String?
+  deadline         DateTime?
+  image            String?
+  eligibility      String?
+  requirement      String?
+  description      String?
+  categoryId       Int?
+  secondcategoryId Int?
+  subcategoryId    Int?
+  sections ScholarshipSection[]
+  category         Category?       @relation(fields: [categoryId], references: [id])
+  secondcategory   Secondcategory? @relation(fields: [secondcategoryId], references: [id])
+  subcategory      Subcategory?    @relation(fields: [subcategoryId], references: [id])
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+}
+model ScholarshipSection {
+  id Int @id @default(autoincrement())
+
+  scholarshipId Int
+
+  title String
+
+  description String
+   sortOrder Int @default(0)
+  scholarship Scholarship @relation(fields: [scholarshipId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+}
+model Plans {
+  id            Int             @id @default(autoincrement())
+  name          String          @unique
+  modules       Module[]
+  features      String?
+  description   String?
+  validity      Int?
+  price         Float?
+  plan_type     String?
+  subscriptions Subscriptions[]
+  payments      Payment[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+model Quiz {
+  id        Int            @id @default(autoincrement())
+  title     String
+  type      String?
+  duration  Int?
+  from      DateTime?
+  to        DateTime?
+  questions QuizQuestion[]
+  attempts  QuizAttempt[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+}
+
+model QuizQuestion {
+  id       Int    @id @default(autoincrement())
+  question String
+
+  quizId Int
+  quiz   Quiz @relation(fields: [quizId], references: [id])
+
+  options          QuizOption[]
+  quizattempanswer QuizAttemptAnswer[]
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+}
+
+model QuizOption {
+  id        Int     @id @default(autoincrement())
+  text      String
+  isCorrect Boolean @default(false)
+
+  questionId       Int
+  question         QuizQuestion        @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  quizattempanswer QuizAttemptAnswer[]
+}
+
+model QuizAttempt {
+  id Int @id @default(autoincrement())
+
+  quizId Int
+  userId Int
+
+  totalQuestions Int
+  correctAnswers Int
+  wrongAnswers   Int
+  score          String
+
+  attemptedAt DateTime @default(now())
+
+  quiz Quiz  @relation(fields: [quizId], references: [id])
+  user Users @relation(fields: [userId], references: [id])
+
+  answers QuizAttemptAnswer[]
+}
+
+model QuizAttemptAnswer {
+  id Int @id @default(autoincrement())
+
+  attemptId        Int
+  questionId       Int
+  selectedOptionId Int
+
+  isCorrect Boolean
+
+  attempt QuizAttempt @relation(fields: [attemptId], references: [id])
+
+  question QuizQuestion @relation(fields: [questionId], references: [id])
+
+  option QuizOption @relation(fields: [selectedOptionId], references: [id])
+}
+
+model MasterClass {
+  id        Int       @id @default(autoincrement())
+  category  String?
+  image     String?
+  title     String?
+  name      String?
+  time      DateTime?
+  views     String?
+  is_active Boolean   @default(false)
+  is_free   Boolean @default(false)
+  video_url String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model StudyAbroad {
+  id             Int                  @id @default(autoincrement())
+  title          String?
+  country_name   String?
+  description    String?
+  overview       String?
+  visa_work      String?
+  living_cost    String?
+  tution_cost    String?
+  top_university String[]
+  scholarship    String[]
+  requirment     String[]
+  popular_course String[]
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  consultations  StudyAbroadConsult[]
+}
+
+model StudyAbroadConsult {
+  id Int @id @default(autoincrement())
+
+  // =========================
+  // USER / STUDY ABROAD
+  // =========================
+  userId        Int
+  studyAbroadId Int
+
+  // =========================
+  // 1. STUDENT BASIC DETAILS
+  // =========================
+  fullName           String?
+  dateOfBirth        DateTime?
+  gender             String?
+  email              String?
+  mobileNumber       String?
+  whatsappNumber     String?
+  currentCityState   String?
+  countryOfCitizenship String?
+
+  // =========================
+  // 2. PARENT / GUARDIAN DETAILS
+  // =========================
+  parentGuardianName   String?
+  parentRelationship   String?
+  parentMobileNumber   String?
+  parentEmail          String?
+  parentOccupation     String?
+
+  // Multiple possible funding sources
+  primaryFundingSource String[] @default([])
+
+  // =========================
+  // 3. ACADEMIC DETAILS
+  // =========================
+  highestQualification String?
+  schoolCollegeUniversity String?
+  boardUniversity      String?
+  passingYear          String?
+  class10PercentageCGPA String?
+  class12PercentageCGPA String?
+
+  // =========================
+  // 4. FOREIGN EDUCATION PREFERENCES
+  // =========================
+  intendedStudyLevel String?
+  preferredIntake    String?
+
+  // Multiple countries
+  preferredCountries String[] @default([])
+
+  preferredCourseProgramme String?
+  preferredSpecialization  String?
+  preferredUniversities    String?
+  openToAlternativeUniversities Boolean?
+
+  // =========================
+  // 5. ENGLISH & ENTRANCE EXAMS
+  // =========================
+  englishTest String?
+  englishTestScoreDate String?
+
+  // Multiple entrance exams
+  otherEntranceExams String[] @default([])
+
+  entranceExamScoreDate String?
+
+  // =========================
+  // 6. CAREER & BUDGET PREFERENCES
+  // =========================
+ preferredCareerDomain String?
+  reasonToStudyAbroad  String?
+
+  // Multiple priorities
+  topPriorities String[] @default([])
+
+  annualTuitionBudget String?
+  totalEducationBudget String?
+
+  scholarshipRequired String?
+  educationLoanRequired String?
+
+  // =========================
+  // 7. PASSPORT & DOCUMENTS
+  // =========================
+  passportStatus String?
+  passportExpiryDate DateTime?
+
+  // Multiple available documents
+  documentsAvailable String[] @default([])
+
+  // =========================
+  // 9. SERVICES REQUIRED
+  // =========================
+  servicesRequired String[] @default([])
+
+  // =========================
+  // SYSTEM
+  // =========================
+  message String?
+  status  String @default("pending")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // =========================
+  // RELATIONS
+  // =========================
+  user Users @relation( fields: [userId], references: [id], onDelete: Cascade)
+
+  studyAbroad StudyAbroad @relation( fields: [studyAbroadId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([studyAbroadId])
+}
+
+model Notification {
+  id Int @id @default(autoincrement())
+
+  title String
+
+  message String?
+
+  target String?
+
+  status String? @default("pending")
+
+  type String?
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+}
+
+model UserLoginHistory {
+  id Int @id @default(autoincrement())
+
+  userId Int
+
+  ipAddress String?
+  location  String?
+  device    String?
+  browser   String?
+  os        String?
+
+  loginAt DateTime @default(now())
+
+  user Users @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model HelpAndSupport {
+  id Int @id @default(autoincrement())
+
+  userId  Int
+  email   String?
+  subject String?
+  message String?
+  status  String? @default("pending")
+
+  user      Users    @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CounselingForm {
+  id                     Int      @id @default(autoincrement())
+
+  // Student Details
+  studentName            String?
+  class                  String?
+  stream                 String?
+  school                 String?
+  counselingDate         DateTime?
+  phoneNumber            String?
+  email                  String?
+
+  // Family Details
+  fatherOccupation       String?
+  motherOccupation       String?
+  siblingCount           Int?
+
+  // Marks (Dynamic)
+  marks                  Json?
+
+  // Total Percentage
+  totalPercentage        String?
+
+  // Career
+  dreamCareerOption1     String?
+  dreamCareerOption2     String?
+  dreamCareerOption3     String?
+
+  parentsExpectation     String?
+
+  category               String?
+
+  observation            String?
+
+  counselorName          String?
+
+  psychometricRecommended Boolean?
+
+  createdAt DateTime @default(now())
+updatedAt DateTime @default(now()) @updatedAt
+}
+model StaffUser {
+  id Int @id @default(autoincrement())
+
+  name String
+
+  email String @unique
+
+  password String
+
+  status Boolean @default(true)
+
+  roleId Int
+
+  role Role @relation(fields: [roleId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Role {
+  id Int @id @default(autoincrement())
+
+  name String @unique
+
+  description String?
+
+  users StaffUser[]
+
+  permissions Permission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Permission {
+  id Int @id @default(autoincrement())
+
+  roleId Int
+
+  module String
+
+  canView   Boolean @default(true)
+  canCreate Boolean @default(true)
+  canEdit   Boolean @default(true)
+  canDelete Boolean @default(true)
+
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([roleId, module])
+}
+
+model Institutes {
+  id Int @id @default(autoincrement())
+
+  name String @unique
+
+  email String @unique
+
+  password String
+
+  contract_person String?
+
+  mobile String?
+
+  address       String?
+  limit         Int     @default(100)
+  student_allow Boolean @default(true)
+
+  status Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+  users     Users[]
+}
+
+model PsychometricAssessment {
+  id Int @id @default(autoincrement())
+
+  userId Int
+
+  studentName String
+
+  className String
+
+  school String?
+
+  testVersion String?
+
+  answers Json
+
+  report Json
+
+  completedAt DateTime
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  user Users @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+
+
+model Careernewsletter{
+  id Int @id @default(autoincrement())
+
+  title String @unique
+  image String
+  description String
+  url String
+  type String?
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+}
+
+model InstitutionImport {
+  id          Int      @id @default(autoincrement())
+
+  fileName    String
+
+  totalRows   Int      @default(0)
+  processed   Int      @default(0)
+  successful  Int      @default(0)
+  failed      Int      @default(0)
+  skipped     Int      @default(0)
+
+  status      String   @default("pending")
+
+  errorFile   String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+//  psychometric assessment model 
+model Assessment {
+  id          Int      @id @default(autoincrement())
+  title       String
+  slug        String   @unique
+  description String?
+  version     String   @default("1.0")
+  status      String   @default("draft")
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sections    AssessmentSection[]
+  attempts    AssessmentAttempt[]
+}
+model AssessmentSection {
+  id           Int      @id @default(autoincrement())
+
+  assessmentId Int
+  assessment   Assessment @relation(fields: [assessmentId],references: [id],onDelete: Cascade)
+
+  code         String
+  title        String
+  description  String?
+  order        Int
+
+  questions    AssessmentQuestion[]
+
+  @@unique([assessmentId, code])
+  @@index([assessmentId])
+}
+
+model AssessmentQuestion {
+  id          Int      @id @default(autoincrement())
+
+  sectionId   Int
+  section     AssessmentSection @relation(fields: [sectionId],references: [id],onDelete: Cascade)
+
+  itemId      String
+  text        String
+  type        String
+
+  facet       String?
+  reverse     Boolean  @default(false)
+
+  image       String?
+  note        String?
+
+  order       Int
+
+  options     AssessmentOption[]
+  answers     AssessmentAnswer[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([sectionId, itemId])
+  @@index([sectionId])
+  @@index([facet])
+}
+model AssessmentOption {
+  id          Int      @id @default(autoincrement())
+
+  questionId  Int
+  question    AssessmentQuestion @relation(fields: [questionId],references: [id],onDelete: Cascade)
+
+  optionText  String
+  optionIndex Int
+  isCorrect   Boolean  @default(false)
+
+  image       String?
+
+  createdAt   DateTime @default(now())
+
+  answers     AssessmentAnswer[]
+
+  @@unique([questionId, optionIndex])
+  @@index([questionId])
+}
+
+model AssessmentAttempt {
+  id           Int      @id @default(autoincrement())
+
+  assessmentId Int
+  assessment   Assessment @relation(fields: [assessmentId],references: [id])
+
+  userId       Int
+  user         Users      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  startedAt    DateTime @default(now())
+  completedAt  DateTime?
+
+  status       String   @default("in_progress")
+
+  answers      AssessmentAnswer[]
+  result       AssessmentResult?
+
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@index([assessmentId])
+}
+
+model AssessmentAnswer {
+  id                Int      @id @default(autoincrement())
+
+  attemptId         Int
+  attempt           AssessmentAttempt @relation( fields: [attemptId], references: [id], onDelete: Cascade)
+
+  questionId        Int
+  question          AssessmentQuestion @relation( fields: [questionId], references: [id])
+
+  selectedOptionId  Int?
+  selectedOption    AssessmentOption? @relation(fields: [selectedOptionId], references: [id])
+
+  likertValue       Int?
+
+  answeredAt        DateTime @default(now())
+
+  @@unique([attemptId, questionId])
+  @@index([attemptId])
+}
+
+model AssessmentResult {
+  id                Int      @id @default(autoincrement())
+
+  attemptId         Int      @unique
+
+  attempt           AssessmentAttempt @relation( fields: [attemptId], references: [id], onDelete: Cascade)
+
+  hollandCode       String?
+  topCareerCluster  String?
+  topCareerMatch    Float?
+  scores            Json
+  top5Clusters      Json
+
+  createdAt         DateTime @default(now())
+}
+
+model CareerCluster {
+  id           Int      @id @default(autoincrement())
+
+  code         String   @unique
+  name         String
+  hollandCode  String?
+  description  String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  weights      CareerClusterWeight[]
+}
+
+model CareerClusterWeight {
+  id          Int      @id @default(autoincrement())
+
+  clusterId   Int
+  cluster     CareerCluster @relation( fields: [clusterId], references: [id], onDelete: Cascade)
+
+  facet       String
+  weight      Float
+
+  @@unique([clusterId, facet])
+  @@index([clusterId])
+}
