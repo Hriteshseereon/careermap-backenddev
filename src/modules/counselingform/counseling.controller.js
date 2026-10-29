@@ -115,6 +115,80 @@ export const formatMarksForReport = (marksData, fallbackSubjects = []) => {
   return entries.length > 0 ? entries.join("\n") : "-";
 };
 
+export const CATEGORY_OPTIONS = [
+  {
+    key: "A",
+    text: "(A) Absolutely clear about future career options, need only the right direction and route",
+    keywords: ["absolutely clear", "clear about future", "right direction", "clear"],
+  },
+  {
+    key: "B",
+    text: "(B) Confused between two/three career options",
+    keywords: ["confused between", "two/three career options", "confused"],
+  },
+  {
+    key: "C",
+    text: "(C) Parents and the student differ on career options",
+    keywords: ["parents and the student differ", "differ on career options", "differ"],
+  },
+  {
+    key: "D",
+    text: "(D) Changing career options quite frequently",
+    keywords: ["changing career options", "quite frequently", "frequently"],
+  },
+  {
+    key: "E",
+    text: "(E) Vague knowledge about Career options",
+    keywords: ["vague knowledge", "vague"],
+  },
+];
+
+export const resolveSelectedCategory = (categoryInput) => {
+  if (categoryInput === undefined || categoryInput === null) return "-";
+  const clean = stripHtml(String(categoryInput)).trim();
+  if (!clean) return "-";
+
+  const upper = clean.toUpperCase();
+
+  // 1. Direct letter or letter-prefix match (e.g. "A", "(A)", "A)", "Option A", "Category A", "(A) ...")
+  for (const opt of CATEGORY_OPTIONS) {
+    if (
+      upper === opt.key ||
+      upper === `(${opt.key})` ||
+      upper === `${opt.key})` ||
+      upper.startsWith(`(${opt.key})`) ||
+      upper.startsWith(`${opt.key})`) ||
+      upper.startsWith(`${opt.key} -`) ||
+      upper.startsWith(`${opt.key}.`) ||
+      upper === `OPTION ${opt.key}` ||
+      upper === `OPTION (${opt.key})` ||
+      upper === `CATEGORY ${opt.key}` ||
+      upper === `CATEGORY (${opt.key})`
+    ) {
+      return opt.text;
+    }
+  }
+
+  // 2. Exact or normalized text match
+  const normClean = upper.replace(/[^A-Z0-9]/g, "");
+  for (const opt of CATEGORY_OPTIONS) {
+    const normOpt = opt.text.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (normClean === normOpt || normClean.includes(normOpt) || normOpt.includes(normClean)) {
+      return opt.text;
+    }
+  }
+
+  // 3. Match by keywords
+  const lower = clean.toLowerCase();
+  for (const opt of CATEGORY_OPTIONS) {
+    if (opt.keywords.some((kw) => lower.includes(kw))) {
+      return opt.text;
+    }
+  }
+
+  return clean;
+};
+
 export const createCounselingController = async (req, res) => {
   const result = await createCounseling(req.body, { staff: req.staff, admin: req.admin });
   res.status(result.success ? 201 : (result.statusCode || 400)).json(result);
@@ -174,7 +248,7 @@ export const downloadCounselingReportController = async (req, res) => {
       console.error("Logo fetch failed:", e.message);
     }
  
-    const doc = new PDFDocument({ size: "A4", margin: 40 });
+    const doc = new PDFDocument({ size: "A4", margin: 40, bufferPages: true });
  
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
@@ -288,7 +362,7 @@ export const downloadCounselingReportController = async (req, res) => {
  
     twoColRow("Name of the Counselee", data.studentName, LABEL_W1);
     twoColRow("Class", data.class, LABEL_W1);
-    twoColRow("Stream (if 11th / 12th)", data.stream, LABEL_W1);
+    twoColRow("Stream", data.stream, LABEL_W1);
     twoColRow("School", data.school, LABEL_W1);
     twoColRow(
       "Date",
@@ -342,7 +416,7 @@ export const downloadCounselingReportController = async (req, res) => {
 
     const scoreLabel = data.stream
       ? `Latest Score (${data.stream})`
-      : "Latest Score (if 11th / 12th)";
+      : "Latest Score";
     twoColRow(scoreLabel, marksText, LABEL_W2);
 
     // Total Percentage Row
@@ -377,60 +451,15 @@ export const downloadCounselingReportController = async (req, res) => {
       LABEL_W2
     );
  
-    // Category row with A-E options, selected one highlighted
-    const categoryOptions = [
-      "(A) Absolutely clear about future career options, need only the right direction and route",
-      "(B) Confused between two/three career options",
-      "(C) Parents and the student differ on career options",
-      "(D) Changing career options quite frequently",
-      "(E) Vague knowledge about Career options",
-    ];
-    const selectedCategory = stripHtml(data.category || "").toUpperCase();
+    // Category row - only display the selected option
+    const categoryText = resolveSelectedCategory(data.category);
  
-    {
-      const label = "Which category does your counselee belong to?";
-      const labelWidth = LABEL_W2;
-      const valueWidth = TABLE_WIDTH - labelWidth;
- 
-      doc.font("Helvetica-Bold").fontSize(10);
-      const labelHeight = doc.heightOfString(label, { width: labelWidth - 10 });
- 
-      doc.font("Helvetica").fontSize(9);
-      let valueHeight = 0;
-      categoryOptions.forEach((opt) => {
-        valueHeight += doc.heightOfString(opt, { width: valueWidth - 10 }) + 2;
-      });
- 
-      const rowHeight = Math.max(labelHeight, valueHeight, 20) + 10;
-      checkPageBreak(rowHeight);
- 
-      const y = doc.y;
-      doc.rect(LEFT, y, labelWidth, rowHeight).stroke();
-      doc.rect(LEFT + labelWidth, y, valueWidth, rowHeight).stroke();
- 
-      doc
-        .font("Helvetica-Bold")
-        .fontSize(10)
-        .fillColor(BLACK)
-        .text(label, LEFT + 5, y + 5, { width: labelWidth - 10 });
- 
-      let optY = y + 5;
-      categoryOptions.forEach((opt, idx) => {
-        const letter = String.fromCharCode(65 + idx); // A, B, C, D, E
-        const isSelected =
-          selectedCategory === letter ||
-          selectedCategory.startsWith(`(${letter})`) ||
-          selectedCategory.startsWith(letter + ")");
-        doc
-          .font(isSelected ? "Helvetica-Bold" : "Helvetica")
-          .fontSize(9)
-          .fillColor(isSelected ? HIGHLIGHT : BLACK)
-          .text(opt, LEFT + labelWidth + 5, optY, { width: valueWidth - 10 });
-        optY += doc.heightOfString(opt, { width: valueWidth - 10 }) + 2;
-      });
- 
-      doc.y = y + rowHeight;
-    }
+    twoColRow(
+      "Which category does your counselee belong to?",
+      categoryText,
+      LABEL_W2
+    );
+
  
     // Observation & Recommendation (strip HTML so tags like <p> don't print in PDF)
     {
@@ -538,16 +567,21 @@ export const downloadCounselingReportController = async (req, res) => {
         align: "center",
       });
  
-    // Footer
-    doc
-      .fontSize(8)
-      .fillColor(GRAY)
-      .text(
-        "Generated by Career Counseling Management System",
-        LEFT,
-        PAGE_HEIGHT - 30,
-        { width: TABLE_WIDTH, align: "center" }
-      );
+    // Footer on all buffered pages
+    const range = doc.bufferedPageRange();
+    for (let i = range.start; i < range.start + range.count; i++) {
+      doc.switchToPage(i);
+      doc.page.margins.bottom = 0;
+      doc
+        .fontSize(8)
+        .fillColor(GRAY)
+        .text(
+          "Generated by Career Counseling Management System",
+          LEFT,
+          PAGE_HEIGHT - 25,
+          { width: TABLE_WIDTH, align: "center", lineBreak: false }
+        );
+    }
  
     doc.end();
   } catch (error) {
