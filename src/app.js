@@ -46,6 +46,7 @@ import paymentRoutes from "./modules/userportal/routes/payment.routes.js"
 import mentoravailabilityRoute from "./modules/userportal/routes/mentor.routes.js"
 import careerlibraryRoutes from "./modules/userportal/routes/careerLibrary.routes.js"
 import chatbotRoutes from "./modules/chatbot/chatbot.routes.js"
+import sendMessageRoutes from "./modules/sendmessage/sendmessage.routes.js";
 import helmet from "helmet";
 import { notFoundHandler, errorHandler } from "./middlewares/errorHandler.js";
 const app = express();
@@ -143,6 +144,9 @@ app.use("/api/mentor",mentoravailabilityRoute);
 app.use("/api/careerlibrary",careerlibraryRoutes)
 app.use("/api/userhistory",loginhistoryRoute);
 app.use("/api/chatbot", chatbotRoutes);
+app.use("/api/send-message", sendMessageRoutes);
+app.use("/api/sendmessage", sendMessageRoutes);
+app.use("/api/send_message", sendMessageRoutes);
 
 // JSON 404 for unknown routes and one central error handler (Express 5 forwards async errors here).
 app.use(notFoundHandler);

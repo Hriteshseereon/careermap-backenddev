@@ -31,5 +31,6 @@ pool.query('ALTER TABLE "CounselingForm" ADD COLUMN IF NOT EXISTS "totalPercenta
   console.warn("Notice: could not auto-add totalPercentage column (it may already exist or table not created yet):", err.message);
 });
 
+
 export { pool };
 export default prisma;

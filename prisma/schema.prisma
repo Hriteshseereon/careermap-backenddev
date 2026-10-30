@@ -101,6 +101,7 @@ model Users {
    reviews MentorReview[]
    psychometricAssessments PsychometricAssessment[]
    assessmentAttempts AssessmentAttempt[]
+   sendMessages     SendMessage[]
 }
 
 model Subscriptions {
@@ -1252,4 +1253,21 @@ model CareerClusterWeight {
 
   @@unique([clusterId, facet])
   @@index([clusterId])
+}
+
+model SendMessage {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  name      String?
+  email_id  String?
+  phone_no  String?
+  message   String
+  status    String?  @default("pending")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user Users? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("send_message")
 }
