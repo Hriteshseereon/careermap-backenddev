@@ -4,6 +4,7 @@ import {
   getDashboardController,
   getAllTransactionsController,
   getAllMentorBookingsController,
+  getAllSubscribersController,
 } from "./adminDashboard.controller.js";
 
 import { protectAdminOrStaff } from "../../middlewares/protectAdminOrStaff.js";
@@ -25,6 +26,18 @@ router.get(
   "/mentor-bookings",
   protectAdminOrStaff,
   getAllMentorBookingsController
+);
+
+router.get(
+  "/subscribers",
+  protectAdminOrStaff,
+  getAllSubscribersController
+);
+
+router.get(
+  "/subscriptions",
+  protectAdminOrStaff,
+  getAllSubscribersController
 );
 
 export default router;

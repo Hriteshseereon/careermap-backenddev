@@ -104,4 +104,33 @@ export const AdminDashboardRepository = {
       },
     });
   },
+
+  getAllSubscribers() {
+    return prisma.subscriptions.findMany({
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+            email: true,
+            mobile: true,
+          },
+        },
+        plan: {
+          select: {
+            id: true,
+            name: true,
+            price: true,
+            validity: true,
+            plan_type: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+  },
 };

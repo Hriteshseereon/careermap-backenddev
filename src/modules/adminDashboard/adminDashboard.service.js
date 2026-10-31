@@ -58,6 +58,42 @@ export const getAllMentorBookings = async () => {
   };
 };
 
+export const getAllSubscribers = async () => {
+  const subscriptions =
+    await AdminDashboardRepository.getAllSubscribers();
+
+  const now = new Date();
+
+  return {
+    success: true,
+    count: subscriptions.length,
+    data: subscriptions.map((sub) => {
+      const isExpired = sub.endDate ? new Date(sub.endDate) < now : false;
+
+      return {
+        id: sub.id,
+        userId: sub.userId,
+        userName: formatUserName(sub.user),
+        userEmail: sub.user?.email || null,
+        userMobile: sub.user?.mobile || null,
+        planId: sub.planId,
+        planName: sub.plan?.name || null,
+        planType: sub.planType || sub.plan?.plan_type || null,
+        planPrice: sub.plan?.price || null,
+        amount: sub.amount,
+        startDate: sub.startDate,
+        endDate: sub.endDate,
+        status: isExpired ? "expired" : (sub.status || "active"),
+        isExpired,
+        stripeSessionId: sub.stripeSessionId,
+        createdAt: sub.createdAt,
+        user: sub.user,
+        plan: sub.plan,
+      };
+    }),
+  };
+};
+
 export const getDashboardData = async () => {
 
   const startDate = new Date();

@@ -2,6 +2,7 @@ import {
   getDashboardData,
   getAllTransactions,
   getAllMentorBookings,
+  getAllSubscribers,
 } from "./adminDashboard.service.js";
 
 export const getDashboardController =
@@ -39,6 +40,19 @@ export const getAllTransactionsController = async (req, res) => {
 export const getAllMentorBookingsController = async (req, res) => {
   try {
     const result = await getAllMentorBookings();
+
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const getAllSubscribersController = async (req, res) => {
+  try {
+    const result = await getAllSubscribers();
 
     res.status(200).json(result);
   } catch (error) {
