@@ -1,5 +1,76 @@
 import prisma from "../../../config/db.js";
 
+const careerPathInclude = {
+  module: true,
+  path: true,
+};
+
+async function attachResolvedCareerPaths(detailsList) {
+  if (!detailsList || detailsList.length === 0) return detailsList;
+
+  return Promise.all(
+    detailsList.map(async (detail) => {
+      // 1. If detail has a subcategoryId, look for career paths specifically assigned to this subcategory
+      if (detail.subcategoryId) {
+        const subPaths = await prisma.careerPath.findMany({
+          where: { subcategoryId: Number(detail.subcategoryId) },
+          include: careerPathInclude,
+        });
+        if (subPaths.length > 0) {
+          return { ...detail, careerpaths: subPaths };
+        }
+      }
+
+      // 2. If detail has a secondcategoryId, look for career paths specifically assigned to this secondcategory
+      if (detail.secondcategoryId) {
+        const secPaths = await prisma.careerPath.findMany({
+          where: { secondcategoryId: Number(detail.secondcategoryId) },
+          include: careerPathInclude,
+        });
+        if (secPaths.length > 0) {
+          return { ...detail, careerpaths: secPaths };
+        }
+      }
+
+      // 3. If detail has a categoryId, look for career paths specifically assigned to this category
+      if (detail.categoryId) {
+        const catPaths = await prisma.careerPath.findMany({
+          where: {
+            categoryId: Number(detail.categoryId),
+            secondcategoryId: null,
+            subcategoryId: null,
+          },
+          include: careerPathInclude,
+        });
+        if (catPaths.length > 0) {
+          return { ...detail, careerpaths: catPaths };
+        }
+      }
+
+      // 4. Fallback: filter existing joined career paths so that unassigned or mismatched
+      // career paths never leak into an unrelated category.
+      const validJoinedPaths = (detail.careerpaths || []).filter((cp) => {
+        if (cp.categoryId && detail.categoryId && cp.categoryId !== detail.categoryId) {
+          return false;
+        }
+        if (cp.secondcategoryId && detail.secondcategoryId && cp.secondcategoryId !== detail.secondcategoryId) {
+          return false;
+        }
+        if (cp.subcategoryId && detail.subcategoryId && cp.subcategoryId !== detail.subcategoryId) {
+          return false;
+        }
+        // If career path has no category set, do not leak it into a categorized detail
+        if (!cp.categoryId && detail.categoryId) {
+          return false;
+        }
+        return true;
+      });
+
+      return { ...detail, careerpaths: validJoinedPaths };
+    })
+  );
+}
+
 export const UserPortalRepository = {
   getUserById(userId) {
     return prisma.users.findUnique({
@@ -139,102 +210,108 @@ getBookings(mentorId) {
   },
 
   // 🔥 DETAILS BY SUBCATEGORY (DEEP LEVEL)
- getDetailsBySubCategory(subcategoryId) {
-  return prisma.details.findMany({
-    where: { subcategoryId: Number(subcategoryId) },
+  async getDetailsBySubCategory(subcategoryId) {
+    const list = await prisma.details.findMany({
+      where: { subcategoryId: Number(subcategoryId) },
 
-    include: {
-      salaryRanges: true,
+      include: {
+        salaryRanges: true,
 
-      stream: true,
-      category: true,
-      secondcategory: true,
-      subcategory: true,
+        stream: true,
+        category: true,
+        secondcategory: true,
+        subcategory: true,
 
-      // ✅ MANY TO MANY
-      institutions: true,
+        // ✅ MANY TO MANY
+        institutions: true,
 
-      careerpaths: {
-        include: {
-          module: true,
-          path: true,
+        careerpaths: {
+          include: {
+            module: true,
+            path: true,
+          },
         },
+        descriptions: {
+          orderBy: {
+            sortOrder: "asc",
+          },
+        },
+        entranceexams: true,
       },
-      descriptions: {
-  orderBy: {
-    sortOrder: "asc",
+    });
+
+    return attachResolvedCareerPaths(list);
   },
-},
-      entranceexams: true,
-    },
-  });
-},
 
   // 🔥 DETAILS BY CATEGORY (DIRECT LEVEL)
- getDetailsByCategory(categoryId) {
-  return prisma.details.findMany({
-    where: {
-      categoryId: Number(categoryId),
-      subcategoryId: null,
-      secondcategoryId: null,
-    },
-
-    include: {
-      salaryRanges: true,
-
-      stream: true,
-      category: true,
-
-      institutions: true,
-      descriptions: {
-  orderBy: {
-    sortOrder: "asc",
-  },
-},
-      careerpaths: {
-        include: {
-          module: true,
-          path: true,
-        },
+  async getDetailsByCategory(categoryId) {
+    const list = await prisma.details.findMany({
+      where: {
+        categoryId: Number(categoryId),
+        subcategoryId: null,
+        secondcategoryId: null,
       },
 
-      entranceexams: true,
-    },
-  });
-},
+      include: {
+        salaryRanges: true,
+
+        stream: true,
+        category: true,
+
+        institutions: true,
+        descriptions: {
+          orderBy: {
+            sortOrder: "asc",
+          },
+        },
+        careerpaths: {
+          include: {
+            module: true,
+            path: true,
+          },
+        },
+
+        entranceexams: true,
+      },
+    });
+
+    return attachResolvedCareerPaths(list);
+  },
 
   // 🔥 DETAILS BY SECOND CATEGORY (MID LEVEL)
-getDetailsBySecond(secondcategoryId) {
-  return prisma.details.findMany({
-    where: {
-      secondcategoryId: Number(secondcategoryId),
-      subcategoryId: null,
-    },
-
-    include: {
-      salaryRanges: true,
-
-      stream: true,
-      category: true,
-      secondcategory: true,
-
-      institutions: true,
-      descriptions: {
-  orderBy: {
-    sortOrder: "asc",
-  },
-},
-      careerpaths: {
-        include: {
-          module: true,
-          path: true,
-        },
+  async getDetailsBySecond(secondcategoryId) {
+    const list = await prisma.details.findMany({
+      where: {
+        secondcategoryId: Number(secondcategoryId),
+        subcategoryId: null,
       },
 
-      entranceexams: true,
-    },
-  });
-},
+      include: {
+        salaryRanges: true,
+
+        stream: true,
+        category: true,
+        secondcategory: true,
+
+        institutions: true,
+        descriptions: {
+          orderBy: {
+            sortOrder: "asc",
+          },
+        },
+        careerpaths: {
+          include: {
+            module: true,
+            path: true,
+          },
+        },
+
+        entranceexams: true,
+      },
+    });
+
+    return attachResolvedCareerPaths(list);
+  },
 getModuleAccess(userId) {
   return prisma.moduleAccess.findMany({
     where: {
