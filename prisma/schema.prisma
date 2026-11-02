@@ -393,6 +393,7 @@ model CareerPath {
   id               Int     @id @default(autoincrement())
   pathName         String? @unique
   moduleId         Int?
+  streamId         Int?
   categoryId       Int?
   secondcategoryId Int?
   subcategoryId    Int?
@@ -404,6 +405,7 @@ model CareerPath {
   subcategory    Subcategory?    @relation(fields: [subcategoryId], references: [id])
   path           PathType?       @relation(fields: [pathId], references: [id])
 
+  stream              String?
   graduation          String?
   aftergraduation     String?
   afterpostgraduation String?
