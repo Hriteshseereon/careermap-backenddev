@@ -1,8 +1,26 @@
 import dns from "dns";
+import { createRequire } from "module";
 import nodemailer from "nodemailer";
 
 if (dns.setDefaultResultOrder) {
   dns.setDefaultResultOrder("ipv4first");
+}
+
+// Force IPv4 in Nodemailer's internal resolver:
+// Cloud hosts (like Render) often have partial IPv6 interfaces without an internet gateway,
+// causing "connect ENETUNREACH 2607:...:465" when Nodemailer randomly picks an IPv6 address.
+try {
+  const require = createRequire(import.meta.url);
+  const shared = require("nodemailer/lib/shared");
+  if (shared && shared.networkInterfaces) {
+    for (const key of Object.keys(shared.networkInterfaces)) {
+      shared.networkInterfaces[key] = shared.networkInterfaces[key].filter(
+        (i) => i.family !== "IPv6" && i.family !== 6
+      );
+    }
+  }
+} catch (_err) {
+  // Ignore fallback
 }
 
 const emailUser = (process.env.EMAIL_USER || "").trim();
@@ -17,11 +35,6 @@ const nodemailerTransporter = nodemailer.createTransport({
   pool: true,
   maxConnections: 5,
   maxMessages: 100,
-  lookup: (hostname, options, callback) => {
-    dns.lookup(hostname, { family: 4 }, (err, address, family) => {
-      callback(err, address, family);
-    });
-  },
   auth: {
     user: emailUser,
     pass: emailPass,
