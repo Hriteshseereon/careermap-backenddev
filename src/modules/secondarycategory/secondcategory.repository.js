@@ -9,8 +9,9 @@ export const SecondCategoryRepository = {
     return prisma.secondcategory.findMany({
       include: {
         category: true,
-        subcategories: true,
+        subcategories: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
       },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     });
   },
 
@@ -28,6 +29,7 @@ findByCategoryId(categoryId) {
     where: {
       categoryId: Number(categoryId),
     },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
 },
   update(id, data) {

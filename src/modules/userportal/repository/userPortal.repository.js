@@ -189,7 +189,7 @@ getBookings(mentorId) {
   // 🔹 CATEGORY
   getAllCategories() {
     return prisma.category.findMany({
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     });
   },
 
@@ -197,7 +197,7 @@ getBookings(mentorId) {
   getSecondCategories(categoryId) {
     return prisma.secondcategory.findMany({
       where: { categoryId: Number(categoryId) },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     });
   },
 
@@ -205,7 +205,7 @@ getBookings(mentorId) {
   getSubCategories(secondcategoryId) {
     return prisma.subcategory.findMany({
       where: { secondcategoryId: Number(secondcategoryId) },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     });
   },
 

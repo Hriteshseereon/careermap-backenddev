@@ -11,9 +11,10 @@ export const CategoryRepository = {
     return prisma.category.findMany({
       include: {
         stream: true,
-        secondCategories: true,
-        subcategories: true,
+        secondCategories: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
+        subcategories: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
       },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     });
   },
 
@@ -23,8 +24,8 @@ export const CategoryRepository = {
       include: {
         stream: true,
         
-        secondCategories: true,
-        subcategories: true,
+        secondCategories: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
+        subcategories: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
       },
     });
   },
@@ -47,9 +48,7 @@ export const CategoryRepository = {
     where: {
       streamId: Number(streamId),
     },
-    orderBy: {
-      createdAt: "desc",
-    },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
 },
 updatePreviewAccess(id, category_access) {
