@@ -2,7 +2,7 @@ import prisma from "../../config/db.js";
 import { CounselingRepository } from "./CounselingForm.repository.js";
 
 /**
- * Helper to resolve whether request is from Admin or Staff (Counselor)
+ * Helper to resolve whether request is from Admin, Staff (Counselor), or Institute
  */
 const resolveUser = async (userContext = {}) => {
   if (userContext?.admin) {
@@ -11,10 +11,12 @@ const resolveUser = async (userContext = {}) => {
 
   if (userContext?.staff) {
     const staffId = Number(userContext.staff.id);
-    const staffUser = await prisma.staffUser.findUnique({
-      where: { id: staffId },
-      include: { role: true },
-    });
+    const staffUser = Number.isFinite(staffId) && staffId > 0
+      ? await prisma.staffUser.findUnique({
+          where: { id: staffId },
+          include: { role: true },
+        })
+      : null;
 
     const roleName = (staffUser?.role?.name || userContext.staff.roleName || "").toLowerCase();
     const isAdminRole = roleName.includes("admin") || roleName.includes("super");
@@ -30,7 +32,12 @@ const resolveUser = async (userContext = {}) => {
   }
 
   if (userContext?.institute) {
-    return { isInstitute: true, instituteId: Number(userContext.institute.instituteId) };
+    return {
+      isInstitute: true,
+      instituteId: Number(userContext.institute.instituteId),
+      name: (userContext.institute.name || "").trim(),
+      email: (userContext.institute.email || "").trim(),
+    };
   }
 
   // Fallback if neither is present (e.g., internal call)
@@ -39,35 +46,24 @@ const resolveUser = async (userContext = {}) => {
 
 /**
  * Permission checker:
- * - Admin can access all records
- * - Counselor/Staff can only access records they created (by name, email, or _createdById metadata)
+ * - Admin and all Staff/Counselors can access all counseling records.
+ * - Mapped Institute can access counseling records belonging to their institute.
  */
 const canAccessCounseling = (record, resolvedUser) => {
-  if (resolvedUser.isAdmin) return true;
   if (!record) return false;
 
-  const staffName = (resolvedUser.name || "").toLowerCase();
-  const staffEmail = (resolvedUser.email || "").toLowerCase();
-  const staffId = resolvedUser.staffId;
-
-  // 1. Check counselorName field in record
-  if (record.counselorName) {
-    const recName = record.counselorName.trim().toLowerCase();
-    if (staffName && recName === staffName) return true;
-    if (staffEmail && recName === staffEmail) return true;
-    if (staffName && (recName.includes(staffName) || staffName.includes(recName))) return true;
+  // 1. Admin & all Staff/Counselors have system-wide access to all student records
+  if (resolvedUser.isAdmin || resolvedUser.staff || resolvedUser.staffId) {
+    return true;
   }
 
-  // 2. Check metadata in marks JSON
-  if (record.marks && typeof record.marks === "object") {
-    const createdById = record.marks._createdById || record.marks._staffId;
-    if (createdById && staffId && Number(createdById) === Number(staffId)) {
-      return true;
-    }
-    const metaCounselorName = (record.marks._counselorName || "").toString().trim().toLowerCase();
-    if (metaCounselorName && staffName && metaCounselorName === staffName) {
-      return true;
-    }
+  // 2. Institute can access records explicitly mapped to their instituteId
+  if (
+    resolvedUser.isInstitute &&
+    record.instituteId &&
+    Number(record.instituteId) === Number(resolvedUser.instituteId)
+  ) {
+    return true;
   }
 
   return false;
@@ -79,7 +75,7 @@ export const cleanText = (html) => {
   return html
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-    .replace(/<br\s*[\/]?>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/p\s*>/gi, "\n\n")
     .replace(/<\/div\s*>/gi, "\n")
     .replace(/<\/li\s*>/gi, "\n")
@@ -147,13 +143,13 @@ export const parseMarksEntries = (marks) => {
 
     if (genericKeyMatch && cleanScore) {
       // Check if cleanScore contains "Subject - Score" or "Subject : Score"
-      const delimMatch = cleanScore.match(/^([A-Za-z0-9\s/&().+_-]+?)\s*[-:]\s*([0-9]+(?:\.[0-9]+)?%?|[A-Za-z0-9+/]+)$/);
+      const delimMatch = cleanScore.match(/^([A-Za-z0-9\s/&().+_\\-]+?)\s*[-:]\s*([0-9]+(?:\.[0-9]+)?%?|[A-Za-z0-9+/]+)$/);
       if (delimMatch) {
         cleanSub = delimMatch[1].trim();
         cleanScore = delimMatch[2].trim();
       } else {
         // e.g. "ENG 80"
-        const spaceMatch = cleanScore.match(/^([A-Za-z\s/&().+_-]+)\s+([0-9]+(?:\.[0-9]+)?%?)$/);
+        const spaceMatch = cleanScore.match(/^([A-Za-z\s/&().+_\\-]+)\s+([0-9]+(?:\.[0-9]+)?%?)$/);
         if (spaceMatch) {
           cleanSub = spaceMatch[1].trim();
           cleanScore = spaceMatch[2].trim();
@@ -388,29 +384,48 @@ export const createCounseling = async (body, userContext) => {
   }
 };
 
-export const getCounselings = async (userContext) => {
+/**
+ * Get all counseling records:
+ * - Admin and Staff/Counselors get all students across the system.
+ * - Institutes get all records mapped to their institute.
+ */
+export const getCounselings = async (userContext, query = {}) => {
   try {
     const user = await resolveUser(userContext);
 
-    const allRecords = await CounselingRepository.findAll(user.isInstitute ? { instituteId: user.instituteId } : {});
+    let where = {};
+    if (user.isInstitute) {
+      // Find students belonging to this institute to match both direct instituteId and student email
+      const instituteStudents = await prisma.users.findMany({
+        where: { instituteId: user.instituteId },
+        select: { email: true },
+      });
+      const studentEmails = instituteStudents
+        .map((s) => s.email?.trim().toLowerCase())
+        .filter(Boolean);
 
-    if (user.isAdmin) {
-      return {
-        success: true,
-        total: allRecords.length,
-        data: allRecords.map(formatCounselingResponse),
+      where = {
+        OR: [
+          { instituteId: user.instituteId },
+          ...(studentEmails.length > 0 ? [{ email: { in: studentEmails } }] : []),
+        ],
+      };
+    } else if (query?.counselorName) {
+      where = {
+        counselorName: { equals: query.counselorName.trim(), mode: "insensitive" },
+      };
+    } else if (query?.instituteId) {
+      where = {
+        instituteId: Number(query.instituteId),
       };
     }
 
-    // Staff/Counselor only sees their own created records
-    const filtered = user.isInstitute
-      ? allRecords
-      : allRecords.filter((rec) => canAccessCounseling(rec, user));
+    const allRecords = await CounselingRepository.findAll(where);
 
     return {
       success: true,
-      total: filtered.length,
-      data: filtered.map(formatCounselingResponse),
+      total: allRecords.length,
+      data: allRecords.map(formatCounselingResponse),
     };
   } catch (err) {
     return {
@@ -433,11 +448,11 @@ export const getCounselingById = async (id, userContext) => {
       };
     }
 
-    if (!canAccessCounseling(data, user) && !(user.isInstitute && data.instituteId === user.instituteId)) {
+    if (!canAccessCounseling(data, user)) {
       return {
         success: false,
         statusCode: 403,
-        message: "Unauthorized: You can only view counseling reports created by you",
+        message: "Unauthorized: You do not have access to this counseling report",
       };
     }
 
@@ -466,11 +481,19 @@ export const updateCounseling = async (id, body, userContext) => {
       };
     }
 
+    if (user.isInstitute) {
+      return {
+        success: false,
+        statusCode: 403,
+        message: "Unauthorized: Institutes have read-only access to counseling reports",
+      };
+    }
+
     if (!canAccessCounseling(existing, user)) {
       return {
         success: false,
         statusCode: 403,
-        message: "Unauthorized: You can only update counseling reports created by you",
+        message: "Unauthorized: You do not have permission to update this counseling report",
       };
     }
 
@@ -582,11 +605,19 @@ export const deleteCounseling = async (id, userContext) => {
       };
     }
 
+    if (user.isInstitute) {
+      return {
+        success: false,
+        statusCode: 403,
+        message: "Unauthorized: Institutes cannot delete counseling reports",
+      };
+    }
+
     if (!canAccessCounseling(existing, user)) {
       return {
         success: false,
         statusCode: 403,
-        message: "Unauthorized: You can only delete counseling reports created by you",
+        message: "Unauthorized: You do not have permission to delete this counseling report",
       };
     }
 
@@ -616,11 +647,11 @@ export const generateCounselingReport = async (id, userContext) => {
     };
   }
 
-  if (!canAccessCounseling(counseling, user) && !(user.isInstitute && counseling.instituteId === user.instituteId)) {
+  if (!canAccessCounseling(counseling, user)) {
     return {
       success: false,
       statusCode: 403,
-      message: "Unauthorized: You can only download reports created by you",
+      message: "Unauthorized: You do not have access to this counseling report",
     };
   }
 
@@ -633,19 +664,6 @@ export const generateCounselingReport = async (id, userContext) => {
 export const getCounselingsByCounselor = async (counselorName, userContext) => {
   try {
     const user = await resolveUser(userContext);
-
-    // If staff/counselor, they can only view their own counselorName
-    if (!user.isAdmin) {
-      const staffName = (user.name || "").toLowerCase();
-      const requestedName = (counselorName || "").toLowerCase();
-      if (staffName !== requestedName) {
-        return {
-          success: false,
-          statusCode: 403,
-          message: "Unauthorized: You cannot view reports for another counselor",
-        };
-      }
-    }
 
     const allRecords = await CounselingRepository.findAll();
     const filtered = allRecords.filter((rec) => {

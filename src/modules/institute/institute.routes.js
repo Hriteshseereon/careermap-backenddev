@@ -10,6 +10,7 @@ import {
   getInstituteDashboardController,
   getInstituteStudentsController,
   getInstitutePsychometricAssessmentsController,
+  getInstituteCounselingReportsController,
 } from "./institute.controller.js";
 
 import { protectAdminOrStaff } from "../../middlewares/protectAdminOrStaff.js";
@@ -42,6 +43,12 @@ router.get(
   getInstitutePsychometricAssessmentsController
 );
 
+router.get(
+  "/counseling-reports",
+  protectInstitute,
+  getInstituteCounselingReportsController
+);
+
 // ADMIN / STAFF CRUD ROUTES
 router.post(
   "/",
@@ -71,6 +78,12 @@ router.get(
   "/:id/psychometric-assessments",
   protectAdminOrStaff,
   getInstitutePsychometricAssessmentsController
+);
+
+router.get(
+  "/:id/counseling-reports",
+  protectAdminOrStaff,
+  getInstituteCounselingReportsController
 );
 
 router.put(

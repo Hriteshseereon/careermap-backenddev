@@ -9,7 +9,6 @@ import {
 } from "./counseling.services.js";
 import PDFDocument from "pdfkit";
 
-
 const LEFT_LOGO_URL =
   "https://res.cloudinary.com/dfm1xhhwx/image/upload/v1784782926/logo_white_pkzdz0.png";
 const RIGHT_LOGO_URL =
@@ -21,7 +20,7 @@ export const stripHtml = (html) => {
   return html
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-    .replace(/<br\s*[\/]?>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/p\s*>/gi, "\n\n")
     .replace(/<\/div\s*>/gi, "\n")
     .replace(/<\/li\s*>/gi, "\n")
@@ -47,7 +46,9 @@ export const formatMarksForReport = (marksData, fallbackSubjects = []) => {
   if (typeof source === "string") {
     try {
       source = JSON.parse(source);
-    } catch (e) {}
+    } catch {
+      // ignore parse error if string is already formatted text
+    }
   }
 
   if (source && typeof source === "object" && !Array.isArray(source)) {
@@ -58,83 +59,101 @@ export const formatMarksForReport = (marksData, fallbackSubjects = []) => {
 
   const entries = [];
 
-  // If Array
-  if (Array.isArray(source)) {
-    source.forEach((item, idx) => {
-      if (item === undefined || item === null) return;
-      if (typeof item === "object") {
-        const sub = item.subject || item.subjectName || item.name || item.title || item.sub || `sub${idx + 1}`;
-        const score = item.score !== undefined ? item.score : (item.marks !== undefined ? item.marks : (item.mark !== undefined ? item.mark : ""));
-        const cleanSub = stripHtml(String(sub)).trim();
-        const cleanScore = stripHtml(String(score)).trim();
-        entries.push(cleanScore ? `${cleanSub} - ${cleanScore}` : cleanSub);
-      } else {
-        entries.push(stripHtml(String(item)).trim());
-      }
-    });
-  } else if (source && typeof source === "object") {
-    for (const [key, val] of Object.entries(source)) {
-      if (key.startsWith("_") || key === "rawMarks" || key === "totalPercentage" || key === "subjects") {
-        continue;
-      }
-      if (val === undefined || val === null) continue;
+  const add = (sub, sc) => {
+    const s = stripHtml(String(sub || "")).trim();
+    const v = stripHtml(String(sc || "")).trim();
+    if (!s) return;
+    const ls = s.toLowerCase();
+    if (
+      ls.startsWith("_") ||
+      ls === "rawmarks" ||
+      ls === "totalpercentage" ||
+      ls === "createdat" ||
+      ls === "counselorname" ||
+      ls === "createdbyid" ||
+      ls === "creatortype" ||
+      ls === "subjects"
+    ) {
+      return;
+    }
+    entries.push(`${s} - ${v || "-"}`);
+  };
 
-      const cleanKey = stripHtml(String(key)).trim();
-
-      if (typeof val === "object") {
-        const subName = val.subject || val.subjectName || val.name || cleanKey;
-        const subScore = val.score !== undefined ? val.score : (val.marks !== undefined ? val.marks : (val.mark !== undefined ? val.mark : ""));
-        const cleanSubName = stripHtml(String(subName)).trim();
-        const cleanSubScore = stripHtml(String(subScore)).trim();
-        if (cleanSubName && cleanSubName !== cleanKey) {
-          entries.push(`${cleanKey} - ${cleanSubName} - ${cleanSubScore}`);
-        } else {
-          entries.push(`${cleanKey} - ${cleanSubScore}`);
-        }
-      } else {
-        const cleanVal = stripHtml(String(val)).trim();
-        if (cleanKey && cleanVal) {
-          entries.push(`${cleanKey} - ${cleanVal}`);
-        } else if (cleanVal) {
-          entries.push(cleanVal);
-        }
+  // 1. If normalized subjects array exists, prefer it
+  if (Array.isArray(fallbackSubjects) && fallbackSubjects.length > 0) {
+    for (const item of fallbackSubjects) {
+      if (item && item.subject) {
+        add(item.subject, item.score);
       }
     }
+    if (entries.length > 0) return entries.join("\n");
   }
 
-  // Fallback to parsed subjects if entries is empty
-  if (entries.length === 0 && Array.isArray(fallbackSubjects) && fallbackSubjects.length > 0) {
-    fallbackSubjects.forEach((item) => {
-      if (!item) return;
-      const sub = item.subject || item.name || "Subject";
-      const score = item.score !== undefined ? item.score : (item.marks !== undefined ? item.marks : "-");
-      entries.push(`${stripHtml(String(sub)).trim()} - ${stripHtml(String(score)).trim()}`);
-    });
+  // 2. If source has subjects array
+  if (source && Array.isArray(source.subjects) && source.subjects.length > 0) {
+    for (const item of source.subjects) {
+      if (item && item.subject) {
+        add(item.subject, item.score);
+      }
+    }
+    if (entries.length > 0) return entries.join("\n");
   }
 
-  return entries.length > 0 ? entries.join("\n") : "-";
+  // 3. Array of objects or strings
+  if (Array.isArray(source)) {
+    for (const item of source) {
+      if (!item) continue;
+      if (typeof item === "object") {
+        const sub = item.subject ?? item.subjectName ?? item.name ?? item.title ?? item.sub;
+        const val = item.score ?? item.marks ?? item.mark ?? item.value ?? item.percentage;
+        if (sub) add(sub, val);
+        else {
+          for (const [k, v] of Object.entries(item)) add(k, v);
+        }
+      } else if (typeof item === "string") {
+        entries.push(stripHtml(item).trim());
+      }
+    }
+    return entries.length > 0 ? entries.join("\n") : "-";
+  }
+
+  // 4. Object key-value pairs
+  if (typeof source === "object" && source !== null) {
+    for (const [key, val] of Object.entries(source)) {
+      if (typeof val === "object" && val !== null) {
+        const sub = val.subject ?? val.name ?? key;
+        const score = val.score ?? val.marks ?? val.value ?? "";
+        add(sub, score);
+      } else {
+        add(key, val);
+      }
+    }
+    return entries.length > 0 ? entries.join("\n") : "-";
+  }
+
+  return "-";
 };
 
 export const CATEGORY_OPTIONS = [
   {
     key: "A",
-    text: "(A) Absolutely clear about future career options, need only the right direction and route",
-    keywords: ["absolutely clear", "clear about future", "right direction", "clear"],
+    text: "(A) Passionate, having clear plan",
+    keywords: ["passionate", "clear plan"],
   },
   {
     key: "B",
-    text: "(B) Confused between two/three career options",
-    keywords: ["confused between", "two/three career options", "confused"],
+    text: "(B) Confused with many options",
+    keywords: ["confused with many", "many options", "confused"],
   },
   {
     key: "C",
-    text: "(C) Parents and the student differ on career options",
-    keywords: ["parents and the student differ", "differ on career options", "differ"],
+    text: "(C) No clear plan, but open for discussion",
+    keywords: ["no clear plan", "open for discussion"],
   },
   {
     key: "D",
-    text: "(D) Changing career options quite frequently",
-    keywords: ["changing career options", "quite frequently", "frequently"],
+    text: "(D) Having a plan, which is practically not feasible",
+    keywords: ["not feasible", "practically not feasible"],
   },
   {
     key: "E",
@@ -190,48 +209,59 @@ export const resolveSelectedCategory = (categoryInput) => {
 };
 
 export const createCounselingController = async (req, res) => {
-  const result = await createCounseling(req.body, { staff: req.staff, admin: req.admin });
+  const result = await createCounseling(req.body, { staff: req.staff, admin: req.admin, institute: req.institute });
   res.status(result.success ? 201 : (result.statusCode || 400)).json(result);
 };
 
 export const getCounselingsController = async (req, res) => {
-  const result = await getCounselings({ staff: req.staff, admin: req.admin, institute: req.institute });
+  const result = await getCounselings(
+    { staff: req.staff, admin: req.admin, institute: req.institute },
+    req.query
+  );
   res.status(result.success ? 200 : (result.statusCode || 400)).json(result);
 };
 
 export const getInstituteCounselingReportsController = async (req, res) => {
-  const result = await getCounselings({ institute: req.institute });
+  const result = await getCounselings({ institute: req.institute }, req.query);
   res.status(result.success ? 200 : (result.statusCode || 400)).json(result);
 };
 
 export const getMyCounselingReportsController = async (req, res) => {
-  const result = await getCounselings({ staff: req.staff, admin: req.admin });
+  const result = await getCounselings({ staff: req.staff, admin: req.admin }, req.query);
   res.status(result.success ? 200 : (result.statusCode || 400)).json(result);
 };
 
 export const getCounselingsByCounselorController = async (req, res) => {
-  const result = await getCounselingsByCounselor(req.params.counselorName, { staff: req.staff, admin: req.admin });
+  const result = await getCounselingsByCounselor(req.params.counselorName, { staff: req.staff, admin: req.admin, institute: req.institute });
   res.status(result.success ? 200 : (result.statusCode || 400)).json(result);
 };
 
 export const getCounselingByIdController = async (req, res) => {
-  const result = await getCounselingById(req.params.id, { staff: req.staff, admin: req.admin });
+  const result = await getCounselingById(req.params.id, {
+    staff: req.staff,
+    admin: req.admin,
+    institute: req.institute,
+  });
   res.status(result.success ? 200 : (result.statusCode || 404)).json(result);
 };
 
 export const updateCounselingController = async (req, res) => {
-  const result = await updateCounseling(req.params.id, req.body, { staff: req.staff, admin: req.admin });
+  const result = await updateCounseling(req.params.id, req.body, { staff: req.staff, admin: req.admin, institute: req.institute });
   res.status(result.success ? 200 : (result.statusCode || 400)).json(result);
 };
 
 export const deleteCounselingController = async (req, res) => {
-  const result = await deleteCounseling(req.params.id, { staff: req.staff, admin: req.admin });
+  const result = await deleteCounseling(req.params.id, { staff: req.staff, admin: req.admin, institute: req.institute });
   res.status(result.success ? 200 : (result.statusCode || 400)).json(result);
 };
 
 export const downloadCounselingReportController = async (req, res) => {
   try {
-    const result = await generateCounselingReport(req.params.id, { staff: req.staff, admin: req.admin });
+    const result = await generateCounselingReport(req.params.id, {
+      staff: req.staff,
+      admin: req.admin,
+      institute: req.institute,
+    });
 
     if (!result.success) {
       return res.status(result.statusCode || 404).json(result);
@@ -239,18 +269,17 @@ export const downloadCounselingReportController = async (req, res) => {
  
     const data = result.data;
  
-    // Fetch the two logos (requires Node 18+ for global fetch, or swap in axios/node-fetch)
     let leftLogoBuf = null;
     let rightLogoBuf = null;
     try {
-      const [l, r] = await Promise.all([
-        fetch(LEFT_LOGO_URL).then((r) => r.arrayBuffer()),
-        fetch(RIGHT_LOGO_URL).then((r) => r.arrayBuffer()),
+      const [leftBuffer, rightBuffer] = await Promise.all([
+        fetch(LEFT_LOGO_URL).then((resp) => resp.arrayBuffer()),
+        fetch(RIGHT_LOGO_URL).then((resp) => resp.arrayBuffer()),
       ]);
-      leftLogoBuf = Buffer.from(l);
-      rightLogoBuf = Buffer.from(r);
-    } catch (e) {
-      console.error("Logo fetch failed:", e.message);
+      leftLogoBuf = Buffer.from(leftBuffer);
+      rightLogoBuf = Buffer.from(rightBuffer);
+    } catch (err) {
+      console.error("Logo fetch failed:", err?.message || err);
     }
  
     const doc = new PDFDocument({ size: "A4", margin: 40, bufferPages: true });
@@ -292,12 +321,16 @@ export const downloadCounselingReportController = async (req, res) => {
     if (leftLogoBuf) {
       try {
         doc.image(leftLogoBuf, LEFT, 20, { width: 70 });
-      } catch (e) {}
+      } catch {
+        // ignore image error
+      }
     }
     if (rightLogoBuf) {
       try {
         doc.image(rightLogoBuf, RIGHT - 70, 20, { width: 70 });
-      } catch (e) {}
+      } catch {
+        // ignore image error
+      }
     }
  
     doc
@@ -418,19 +451,19 @@ export const downloadCounselingReportController = async (req, res) => {
  
     // Academic Marks / Latest Score
     const marksText = formatMarksForReport(data.marks, data.subjects);
-
+ 
     const scoreLabel = data.stream
       ? `Latest Score (${data.stream})`
       : "Latest Score";
     twoColRow(scoreLabel, marksText, LABEL_W2);
-
+ 
     // Total Percentage Row
     const rawTotalPercentage =
       data.totalPercentage ||
       (data.marks && typeof data.marks === "object"
         ? data.marks.totalPercentage || data.marks._totalPercentage
         : null);
-
+ 
     const cleanTotalPercentage =
       rawTotalPercentage !== undefined &&
       rawTotalPercentage !== null &&
@@ -439,7 +472,7 @@ export const downloadCounselingReportController = async (req, res) => {
             ? String(rawTotalPercentage).trim()
             : `${String(rawTotalPercentage).trim()}%`)
         : "-";
-
+ 
     twoColRow("Total Percentage", cleanTotalPercentage, LABEL_W2);
  
     // Dream career
@@ -448,6 +481,7 @@ export const downloadCounselingReportController = async (req, res) => {
       `Option 2 - ${data.dreamCareerOption2 || ""}`,
       `Option 3 - ${data.dreamCareerOption3 || ""}`,
     ].join("\n");
+ 
     twoColRow("Student's Dream Career", careerText, LABEL_W2);
  
     twoColRow(
@@ -464,7 +498,6 @@ export const downloadCounselingReportController = async (req, res) => {
       categoryText,
       LABEL_W2
     );
-
  
     // Observation & Recommendation (strip HTML so tags like <p> don't print in PDF)
     {
@@ -536,7 +569,7 @@ export const downloadCounselingReportController = async (req, res) => {
         .font(isRecommended ? "Helvetica-Bold" : "Helvetica")
         .fillColor(isRecommended ? HIGHLIGHT : BLACK)
         .text(
-          `${isRecommended ? "\u2611" : "\u2610"} Recommended`,
+          `${isRecommended ? "[X]" : "[ ]"} Recommended`,
           LEFT + col1 + 5,
           y + 8,
           { width: col2 - 10 }
@@ -546,7 +579,7 @@ export const downloadCounselingReportController = async (req, res) => {
         .font(!isRecommended ? "Helvetica-Bold" : "Helvetica")
         .fillColor(!isRecommended ? HIGHLIGHT : BLACK)
         .text(
-          `${!isRecommended ? "\u2611" : "\u2610"} Not Recommended`,
+          `${!isRecommended ? "[X]" : "[ ]"} Not Recommended`,
           LEFT + col1 + col2 + 5,
           y + 8,
           { width: col3 - 10 }
@@ -560,7 +593,7 @@ export const downloadCounselingReportController = async (req, res) => {
     // Signature line
     checkPageBreak(30);
     doc
-      .strokeColor("#999")
+      .strokeColor("#999999")
       .moveTo(RIGHT - 160, doc.y)
       .lineTo(RIGHT, doc.y)
       .stroke();
@@ -590,11 +623,11 @@ export const downloadCounselingReportController = async (req, res) => {
  
     doc.end();
   } catch (error) {
-    console.error(error);
+    console.error("Download counseling report error:", error);
  
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: error?.message || "Failed to generate counseling report",
     });
   }
 };

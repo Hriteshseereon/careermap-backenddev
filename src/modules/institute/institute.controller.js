@@ -1,5 +1,4 @@
 import {
-
   createInstitute,
   loginInstitute,
   getInstitutes,
@@ -9,6 +8,7 @@ import {
   getInstituteDashboard,
   getInstituteStudents,
   getInstitutePsychometricAssessments,
+  getInstituteCounselingReports,
 } from "./institute.service.js";
 
 
@@ -139,6 +139,22 @@ export const getInstitutePsychometricAssessmentsController = async (req, res) =>
     }
 
     const result = await getInstitutePsychometricAssessments(instituteId);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getInstituteCounselingReportsController = async (req, res) => {
+  try {
+    const instituteId =
+      req.institute?.instituteId || req.query.instituteId || req.params.instituteId || req.params.id;
+
+    if (!instituteId) {
+      return res.status(400).json({ success: false, message: "Institute ID is required" });
+    }
+
+    const result = await getInstituteCounselingReports(instituteId);
     res.json(result);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

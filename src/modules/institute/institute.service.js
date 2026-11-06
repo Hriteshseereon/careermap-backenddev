@@ -3,6 +3,8 @@ import jwt from "jsonwebtoken";
 import prisma from "../../config/db.js";
 import { InstituteRepository } from "./institute.repository.js";
 import { sendInstituteCredentials } from "../../utils/sendInstituteCredentials.js";
+import { CounselingRepository } from "../counselingform/CounselingForm.repository.js";
+import { formatCounselingResponse } from "../counselingform/counseling.services.js";
 
 // CREATE
 export const createInstitute = async (body) => {
@@ -246,6 +248,19 @@ async (instituteId) => {
     (s) => s.assessmentAttempts && s.assessmentAttempts.length > 0
   ).length;
 
+  const studentEmails = students
+    .map((s) => s.email?.trim().toLowerCase())
+    .filter(Boolean);
+
+  const counselingTotal = await prisma.counselingForm.count({
+    where: {
+      OR: [
+        { instituteId: Number(instituteId) },
+        ...(studentEmails.length > 0 ? [{ email: { in: studentEmails, mode: "insensitive" } }] : []),
+      ],
+    },
+  });
+
   return {
     success: true,
     data: {
@@ -256,6 +271,7 @@ async (instituteId) => {
       quizNotAttempted: totalStudents - quizAttemptedStudents,
       psychometricAttempted: psychometricAttemptedStudents,
       psychometricNotAttempted: totalStudents - psychometricAttemptedStudents,
+      counselingTotal,
     },
   };
 };
@@ -408,5 +424,34 @@ export const getInstitutePsychometricAssessments = async (instituteId) => {
     total: formatted.length,
     completed: formatted.filter((a) => a.status === "completed").length,
     data: formatted,
+  };
+};
+
+// GET ALL COUNSELING REPORTS FOR AN INSTITUTE
+export const getInstituteCounselingReports = async (instituteId) => {
+  const instId = Number(instituteId);
+
+  const instituteStudents = await prisma.users.findMany({
+    where: { instituteId: instId },
+    select: { email: true },
+  });
+
+  const studentEmails = instituteStudents
+    .map((s) => s.email?.trim().toLowerCase())
+    .filter(Boolean);
+
+  const whereClause = {
+    OR: [
+      { instituteId: instId },
+      ...(studentEmails.length > 0 ? [{ email: { in: studentEmails, mode: "insensitive" } }] : []),
+    ],
+  };
+
+  const records = await CounselingRepository.findAll(whereClause);
+
+  return {
+    success: true,
+    total: records.length,
+    data: records.map(formatCounselingResponse),
   };
 };

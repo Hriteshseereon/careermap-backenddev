@@ -100,16 +100,16 @@ export const getDashboardData = async (userId) => {
     const currentSub = activeSubscriptions[0] || null;
     const currentSubscription = currentSub
       ? {
-          id: currentSub.id,
-          userId: currentSub.userId,
-          planId: currentSub.planId,
-          planName: currentSub.plan?.name || currentSub.planType || "Plan",
-          planType: currentSub.plan?.plan_type || currentSub.planType || null,
-          startDate: currentSub.startDate,
-          endDate: currentSub.endDate,
-          status: "active",
-          isCurrent: true,
-        }
+        id: currentSub.id,
+        userId: currentSub.userId,
+        planId: currentSub.planId,
+        planName: currentSub.plan?.name || currentSub.planType || "Plan",
+        planType: currentSub.plan?.plan_type || currentSub.planType || null,
+        startDate: currentSub.startDate,
+        endDate: currentSub.endDate,
+        status: "active",
+        isCurrent: true,
+      }
       : null;
 
     const formattedSubscriptions = activeSubscriptions.map((sub, idx) => ({
@@ -167,54 +167,54 @@ export const getDashboardData = async (userId) => {
           mod.markas_free || unlockedModuleIds.includes(mod.id)
             ? "unlocked"
             : mod.freePreview
-            ? "preview"
-            : "locked",
+              ? "preview"
+              : "locked",
         previewDurationSeconds: mod.freePreview ? 15 : null,
       };
     });
- const pendingMentorReviews =
-  await prisma.mentorbooking.findMany({
-    where: {
-      userId: Number(userId),
+    const pendingMentorReviews =
+      await prisma.mentorbooking.findMany({
+        where: {
+          userId: Number(userId),
 
-      status: "confirmed",
+          status: "confirmed",
 
-      reviewSubmitted: false,
+          reviewSubmitted: false,
 
-      date: {
-        lt: new Date(),
-      },
-    },
-
-    include: {
-      mentor: {
-        select: {
-          id: true,
-          name: true,
+          date: {
+            lt: new Date(),
+          },
         },
-      },
-    },
-  });
-  const reviews =
-  pendingMentorReviews.map(
-    (item) => ({
-      bookingId: item.id,
 
-      mentorId:
-        item.mentor.id,
+        include: {
+          mentor: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      });
+    const reviews =
+      pendingMentorReviews.map(
+        (item) => ({
+          bookingId: item.id,
 
-      mentorName:
-        item.mentor.name,
+          mentorId:
+            item.mentor.id,
 
-      date:
-        item.date,
+          mentorName:
+            item.mentor.name,
 
-      timeSlot:
-        item.timeSlot,
+          date:
+            item.date,
 
-      canReview: true,
-    })
-  );
+          timeSlot:
+            item.timeSlot,
+
+          canReview: true,
+        })
+      );
     return {
       success: true,
       data: {

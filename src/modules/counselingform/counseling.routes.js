@@ -12,6 +12,7 @@ import {
 } from "./counseling.controller.js";
 import { protectAdminOrStaff } from "../../middlewares/protectAdminOrStaff.js";
 import { protectInstitute } from "../../middlewares/protectInstitute.js";
+import { protectAdminOrStaffOrInstitute } from "../../middlewares/protectAdminOrStaffOrInstitute.js";
 
 const router = express.Router();
 
@@ -22,15 +23,15 @@ router.get("/counselor/:counselorName", protectAdminOrStaff, getCounselingsByCou
 
 // 🔹 Main CRUD routes
 router.post("/", protectAdminOrStaff, createCounselingController);
-router.get("/", protectAdminOrStaff, getCounselingsController);
-router.get("/:id", protectAdminOrStaff, getCounselingByIdController);
+router.get("/", protectAdminOrStaffOrInstitute, getCounselingsController);
+router.get("/:id", protectAdminOrStaffOrInstitute, getCounselingByIdController);
 router.put("/:id", protectAdminOrStaff, updateCounselingController);
 router.delete("/:id", protectAdminOrStaff, deleteCounselingController);
 
 // 🔹 PDF Report download
 router.get(
   "/:id/report",
-  protectAdminOrStaff,
+  protectAdminOrStaffOrInstitute,
   downloadCounselingReportController
 );
 

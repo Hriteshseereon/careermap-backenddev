@@ -16,21 +16,30 @@ export const CounselingRepository = {
       throw err;
     }
   },
+
   findAll(where = {}) {
     return prisma.counselingForm.findMany({
       where,
-      include: { schoolInstitution: { select: { id: true, name: true } } },
+      include: {
+        schoolInstitution: { select: { id: true, name: true, city: true, state: true } },
+        institute: { select: { id: true, name: true, email: true, mobile: true } },
+      },
       orderBy: {
         createdAt: "desc",
       },
     });
   },
+
   findById(id) {
     return prisma.counselingForm.findUnique({
       where: { id },
-      include: { schoolInstitution: { select: { id: true, name: true } } },
+      include: {
+        schoolInstitution: { select: { id: true, name: true, city: true, state: true } },
+        institute: { select: { id: true, name: true, email: true, mobile: true } },
+      },
     });
   },
+
   async update(id, data) {
     try {
       return await prisma.counselingForm.update({
@@ -48,9 +57,10 @@ export const CounselingRepository = {
       throw err;
     }
   },
+
   delete(id) {
     return prisma.counselingForm.delete({
       where: { id },
     });
   },
-};
+};

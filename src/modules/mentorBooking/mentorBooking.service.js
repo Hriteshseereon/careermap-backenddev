@@ -65,163 +65,163 @@ const mentorSignatureMatches = (orderId, paymentId, signature) => {
 };
 
 export const verifyMentorPayment =
-async (userId, body) => {
+  async (userId, body) => {
 
-  // Security: a booking is only confirmed for a genuine Razorpay payment
-  // (both the web portal and the mobile app send these three fields).
-  if (
-    !mentorSignatureMatches(
-      body?.razorpay_order_id,
-      body?.razorpay_payment_id,
-      body?.razorpay_signature
-    )
-  ) {
-    throw new Error(
-      "Payment verification failed"
-    );
-  }
+    // Security: a booking is only confirmed for a genuine Razorpay payment
+    // (both the web portal and the mobile app send these three fields).
+    if (
+      !mentorSignatureMatches(
+        body?.razorpay_order_id,
+        body?.razorpay_payment_id,
+        body?.razorpay_signature
+      )
+    ) {
+      throw new Error(
+        "Payment verification failed"
+      );
+    }
 
-  // One Razorpay order can confirm only one booking.
-  const alreadyUsed =
-    await prisma.mentorpayment.findFirst({
-      where: {
-        orderId: String(body.razorpay_order_id),
-      },
-      select: { id: true },
-    });
+    // One Razorpay order can confirm only one booking.
+    const alreadyUsed =
+      await prisma.mentorpayment.findFirst({
+        where: {
+          orderId: String(body.razorpay_order_id),
+        },
+        select: { id: true },
+      });
 
-  if (alreadyUsed) {
-    throw new Error(
-      "This payment has already been used for a booking"
-    );
-  }
+    if (alreadyUsed) {
+      throw new Error(
+        "This payment has already been used for a booking"
+      );
+    }
 
-  const existing =
-    await prisma.mentorbooking.findFirst({
+    const existing =
+      await prisma.mentorbooking.findFirst({
 
-      where: {
-        mentorId: Number(body.mentorId),
-        date: new Date(body.date),
-        timeSlot: body.timeSlot,
-      },
-    });
+        where: {
+          mentorId: Number(body.mentorId),
+          date: new Date(body.date),
+          timeSlot: body.timeSlot,
+        },
+      });
 
-  if (existing) {
-    throw new Error(
-      "Slot already booked"
-    );
-  }
+    if (existing) {
+      throw new Error(
+        "Slot already booked"
+      );
+    }
 
-  // mentor fee fetch karo
-  const mentor =
-    await prisma.mentor.findUnique({
-      where: {
-        id: Number(body.mentorId),
-      },
-    });
+    // mentor fee fetch karo
+    const mentor =
+      await prisma.mentor.findUnique({
+        where: {
+          id: Number(body.mentorId),
+        },
+      });
 
-  if (!mentor) {
-    throw new Error(
-      "Mentor not found"
-    );
-  }
+    if (!mentor) {
+      throw new Error(
+        "Mentor not found"
+      );
+    }
 
-  const amount =
-    Number(mentor.mentor_fees);
+    const amount =
+      Number(mentor.mentor_fees);
 
-  // 🔥 CREATE BOOKING FIRST
-  const booking =
-    await prisma.mentorbooking.create({
+    // 🔥 CREATE BOOKING FIRST
+    const booking =
+      await prisma.mentorbooking.create({
+
+        data: {
+
+          userId,
+
+          mentorId:
+            Number(body.mentorId),
+
+          date:
+            new Date(body.date),
+
+          timeSlot:
+            body.timeSlot,
+
+          amount,
+
+          status:
+            "confirmed",
+
+          paymentStatus:
+            "paid",
+        },
+      });
+    // 🔥 THEN CREATE PAYMENT
+    await prisma.mentorpayment.create({
 
       data: {
 
+        bookingId:
+          booking.id,
+
         userId,
-
-        mentorId:
-          Number(body.mentorId),
-
-        date:
-          new Date(body.date),
-
-        timeSlot:
-          body.timeSlot,
 
         amount,
 
-        status:
-          "confirmed",
+        orderId:
+          body.razorpay_order_id,
 
-        paymentStatus:
+        paymentId:
+          body.razorpay_payment_id,
+
+        status:
           "paid",
       },
     });
-  // 🔥 THEN CREATE PAYMENT
-  await prisma.mentorpayment.create({
 
-    data: {
+    // Confirmation mails: a mail outage must not turn a paid, confirmed booking into an error
+    // (previously the payment row was never written when the mail failed).
+    try {
+      const user =
+        await MentorBookingRepository.getUser(
+          userId
+        );
 
-      bookingId:
-        booking.id,
+      await sendMentorBookingMail(
+        user,
+        mentor,
+        booking
+      );
+    } catch (mailError) {
+      console.error("❌ Mentor booking mail error:", mailError.message);
+    }
 
-      userId,
+    return booking;
+  };
+export const getMyBookings =
+  async (userId) => {
 
-      amount,
-
-      orderId:
-        body.razorpay_order_id,
-
-      paymentId:
-        body.razorpay_payment_id,
-
-      status:
-        "paid",
-    },
-  });
-
-  // Confirmation mails: a mail outage must not turn a paid, confirmed booking into an error
-  // (previously the payment row was never written when the mail failed).
-  try {
-    const user =
-      await MentorBookingRepository.getUser(
+    const bookings =
+      await MentorBookingRepository.getMyBookings(
         userId
       );
 
-    await sendMentorBookingMail(
-      user,
-      mentor,
-      booking
-    );
-  } catch (mailError) {
-    console.error("❌ Mentor booking mail error:", mailError.message);
-  }
-
-  return booking;
-};
-export const getMyBookings =
-async (userId) => {
-
-  const bookings =
-    await MentorBookingRepository.getMyBookings(
-      userId
-    );
-
-  return {
-    success: true,
-    data: bookings,
+    return {
+      success: true,
+      data: bookings,
+    };
   };
-};
 
 export const getAllBookings =
-async () => {
+  async () => {
 
-  const data =
-    await MentorBookingRepository.getAllBookings();
+    const data =
+      await MentorBookingRepository.getAllBookings();
 
-  return {
-    success: true,
-    data,
+    return {
+      success: true,
+      data,
+    };
   };
-};
 
 export const getBookedSlots = async (
   mentorId,
@@ -243,32 +243,32 @@ export const getBookedSlots = async (
 };
 
 export const getUserMentorBookings =
-async (userId) => {
+  async (userId) => {
 
-  const data =
-    await MentorBookingRepository.getUserMentorBookings(
-      userId
-    );
+    const data =
+      await MentorBookingRepository.getUserMentorBookings(
+        userId
+      );
 
-  const bookings = data.map((item) => ({
+    const bookings = data.map((item) => ({
 
-    ...item,
+      ...item,
 
-    canReview:
+      canReview:
 
-      new Date(item.date) < new Date() &&
+        new Date(item.date) < new Date() &&
 
-      item.status === "confirmed" &&
+        item.status === "confirmed" &&
 
-      !item.reviewSubmitted
+        !item.reviewSubmitted
 
-  }));
+    }));
 
-  return {
-    success: true,
-    data: bookings,
+    return {
+      success: true,
+      data: bookings,
+    };
   };
-};
 
 export const getUserSubscriptions = async (userId) => {
   const subscriptions = await MentorBookingRepository.getUserSubscriptions(userId);

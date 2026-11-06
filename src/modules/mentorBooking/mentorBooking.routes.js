@@ -5,10 +5,10 @@ import {
   verifyPaymentController,
   myBookingsController,
   allBookingsController,
-   getBookedSlotsController,
-   userMentorBookingsController,
-   getUserSubscriptionsController,
-   getCurrentSubscriptionController,
+  getBookedSlotsController,
+  userMentorBookingsController,
+  getUserSubscriptionsController,
+  getCurrentSubscriptionController,
 } from "./mentorBooking.controller.js";
 
 import { protectAuth } from "../../middlewares/protectAuth.js";
