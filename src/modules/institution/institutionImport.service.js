@@ -12,6 +12,10 @@ import {
   normalizeValue,
 } from "../../utils/excel/institutionExcel.validator.js";
 
+import {
+  createCategoryResolver,
+} from "../../utils/excel/categoryResolver.js";
+
 const BATCH_SIZE = 100;
 
 export const uploadInstitutionExcel = async (
@@ -120,64 +124,10 @@ const subcategories =
       return String(type).trim();
     };
 
-    /**
-     * Helper to clean text for fuzzy matching (& vs and, extra spaces)
-     */
-    const cleanText = (str) => {
-      if (!str) return "";
-      return String(str)
-        .trim()
-        .toLowerCase()
-        .replace(/&/g, "and")
-        .replace(/[^a-z0-9\s]/g, "")
-        .replace(/\s+/g, " ");
-    };
-
-    /**
-     * --------------------------------
-     * 2. Create lookup maps
-     * --------------------------------
-     */
-
-    const categoryMap = new Map();
-
-    categories.forEach((category) => {
-      categoryMap.set(normalizeValue(category.title), category.id);
-      categoryMap.set(cleanText(category.title), category.id);
-    });
-
-    const secondCategoryMap = new Map();
-
-    secondCategories.forEach((secondCategory) => {
-      const key1 = [
-        secondCategory.categoryId,
-        normalizeValue(secondCategory.name),
-      ].join("|");
-      const key2 = [
-        secondCategory.categoryId,
-        cleanText(secondCategory.name),
-      ].join("|");
-
-      secondCategoryMap.set(key1, secondCategory.id);
-      secondCategoryMap.set(key2, secondCategory.id);
-    });
-
-    const subcategoryMap = new Map();
-
-    subcategories.forEach((subcategory) => {
-      const key1 = [
-        subcategory.categoryId,
-        subcategory.secondcategoryId,
-        normalizeValue(subcategory.title),
-      ].join("|");
-      const key2 = [
-        subcategory.categoryId,
-        subcategory.secondcategoryId,
-        cleanText(subcategory.title),
-      ].join("|");
-
-      subcategoryMap.set(key1, subcategory.id);
-      subcategoryMap.set(key2, subcategory.id);
+    const resolveCategories = createCategoryResolver({
+      categories,
+      secondCategories,
+      subcategories,
     });
 
     /**
@@ -212,12 +162,10 @@ const subcategories =
       const normalizedName = instituteName.toLowerCase();
 
       /**
-       * Category Lookup (Exact match -> Fuzzy match) - Optional
+       * Category / Secondary / Sub category lookup (exact -> typo tolerant)
        */
-      const categoryId =
-        categoryMap.get(normalizeValue(rawCategory)) ||
-        categoryMap.get(cleanText(rawCategory)) ||
-        null;
+      const { categoryId, secondcategoryId, subcategoryId } =
+        resolveCategories(rawCategory, rawSecondary, rawSubCategory);
 
       if (!categoryId && rawCategory) {
         missingCategoriesCount.set(
@@ -226,34 +174,11 @@ const subcategories =
         );
       }
 
-      /**
-       * Secondary category (Optional)
-       */
-      let secondcategoryId = null;
-      if (categoryId && rawSecondary) {
-        const key1 = [categoryId, normalizeValue(rawSecondary)].join("|");
-        const key2 = [categoryId, cleanText(rawSecondary)].join("|");
-        secondcategoryId =
-          secondCategoryMap.get(key1) || secondCategoryMap.get(key2) || null;
-      }
-
-      /**
-       * Subcategory (Optional)
-       */
-      let subcategoryId = null;
-      if (categoryId && secondcategoryId && rawSubCategory) {
-        const key1 = [
-          categoryId,
-          secondcategoryId,
-          normalizeValue(rawSubCategory),
-        ].join("|");
-        const key2 = [
-          categoryId,
-          secondcategoryId,
-          cleanText(rawSubCategory),
-        ].join("|");
-        subcategoryId =
-          subcategoryMap.get(key1) || subcategoryMap.get(key2) || null;
+      if (categoryId && rawSecondary && !secondcategoryId) {
+        missingCategoriesCount.set(
+          `${rawCategory} > ${rawSecondary}`,
+          (missingCategoriesCount.get(`${rawCategory} > ${rawSecondary}`) || 0) + 1
+        );
       }
 
       // Deduplicate only identical rows (same institute + same category + same subcategory + same state)
