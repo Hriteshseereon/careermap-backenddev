@@ -66,10 +66,23 @@ async findPaginated(
   }
 
   if (type && String(type).trim().toLowerCase() !== "all") {
-    where.institute_type = {
-      equals: String(type).trim(),
-      mode: "insensitive",
-    };
+    const rawType = String(type).trim().toLowerCase();
+    if (rawType === "govt" || rawType === "government") {
+      where.institute_type = {
+        in: ["Govt", "Government", "Govt."],
+        mode: "insensitive",
+      };
+    } else if (rawType === "pvt" || rawType === "private") {
+      where.institute_type = {
+        in: ["Pvt", "Private", "Pvt."],
+        mode: "insensitive",
+      };
+    } else {
+      where.institute_type = {
+        equals: String(type).trim(),
+        mode: "insensitive",
+      };
+    }
   }
 
   if (category && String(category).trim().toLowerCase() !== "all") {

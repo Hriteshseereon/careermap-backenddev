@@ -25,7 +25,6 @@ try {
 
 const emailUser = (process.env.EMAIL_USER || "").trim();
 const emailPass = (process.env.EMAIL_PASS || "").trim().replace(/\s+/g, "");
-const brevoApiKey = (process.env.BREVO_API_KEY || "").trim();
 const resendApiKey = (process.env.RESEND_API_KEY || "").trim();
 
 const nodemailerTransporter = nodemailer.createTransport({
@@ -45,11 +44,16 @@ const nodemailerTransporter = nodemailer.createTransport({
   },
 });
 
+const getBrevoApiKey = () => {
+  return (process.env.BREVO_API_KEY || "").trim().replace(/['"]/g, "").replace(/\s+/g, "");
+};
+
 /**
  * 1. Sends email via Brevo (Sendinblue) HTTPS REST API
  * (Port 443 - 300 free emails/day to ANY recipient, NO domain verification needed!)
  */
 export const sendViaBrevo = async ({ from, to, subject, html }) => {
+  const apiKey = getBrevoApiKey();
   const senderEmail = emailUser || "it.identitygroup@gmail.com";
   const toList = Array.isArray(to)
     ? to.map((email) => ({ email: email.trim() }))
@@ -58,7 +62,7 @@ export const sendViaBrevo = async ({ from, to, subject, html }) => {
   const response = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
     headers: {
-      "api-key": (process.env.BREVO_API_KEY || "").trim(),
+      "api-key": apiKey,
       "Content-Type": "application/json",
       Accept: "application/json",
     },
@@ -73,6 +77,11 @@ export const sendViaBrevo = async ({ from, to, subject, html }) => {
   const data = await response.json();
   if (!response.ok) {
     console.error("❌ Brevo API Error:", data);
+    console.error(`ℹ️ Brevo Key debug: Starts with "${apiKey.substring(0, 8)}..." | Total length: ${apiKey.length}`);
+    throw new Error(data.message || JSON.stringify(data));
+  }
+  return data;
+};
     throw new Error(data.message || JSON.stringify(data));
   }
   return data;

@@ -270,16 +270,85 @@ async (userId) => {
   };
 };
 
-export const getUserSubscriptions =
-async (userId) => {
+export const getUserSubscriptions = async (userId) => {
+  const subscriptions = await MentorBookingRepository.getUserSubscriptions(userId);
+  const now = new Date();
 
-  const data =
-    await MentorBookingRepository.getUserSubscriptions(
-      userId
-    );
+  // Background update: mark expired subscriptions in database
+  prisma.subscriptions.updateMany({
+    where: {
+      userId: Number(userId),
+      status: "active",
+      endDate: { lt: now },
+    },
+    data: { status: "expired" },
+  }).catch((err) => console.warn("Notice: could not auto-expire subscriptions in DB:", err.message));
+
+  let currentSubscriptionFound = false;
+  let currentSubscriptionObj = null;
+
+  const formattedSubscriptions = subscriptions.map((sub) => {
+    const startDate = sub.startDate ? new Date(sub.startDate) : null;
+    const endDate = sub.endDate ? new Date(sub.endDate) : null;
+
+    const isExpired = endDate ? now > endDate : false;
+    const isStarted = startDate ? now >= startDate : true;
+
+    // Real-time computed status
+    let computedStatus = sub.status || "active";
+    if (isExpired) {
+      computedStatus = "expired";
+    } else if (!isStarted) {
+      computedStatus = "scheduled";
+    } else if (sub.status === "active") {
+      computedStatus = "active";
+    }
+
+    // Authoritative single current subscription: the latest active unexpired subscription
+    let isCurrent = false;
+    if (!currentSubscriptionFound && computedStatus === "active" && !isExpired) {
+      isCurrent = true;
+      currentSubscriptionFound = true;
+    }
+
+    const item = {
+      id: sub.id,
+      userId: sub.userId,
+      planId: sub.planId,
+      planName: sub.plan?.name || sub.planType || "Plan",
+      planType: sub.plan?.plan_type || sub.planType || null,
+      amount: sub.amount,
+      startDate: sub.startDate,
+      endDate: sub.endDate,
+      status: computedStatus,
+      rawStatus: sub.status,
+      isExpired,
+      isCurrent,
+      createdAt: sub.createdAt,
+      updatedAt: sub.updatedAt,
+      plan: sub.plan,
+    };
+
+    if (isCurrent) {
+      currentSubscriptionObj = item;
+    }
+
+    return item;
+  });
 
   return {
     success: true,
-    data,
+    currentSubscription: currentSubscriptionObj,
+    data: formattedSubscriptions,
+    history: formattedSubscriptions,
+  };
+};
+
+export const getCurrentSubscription = async (userId) => {
+  const result = await getUserSubscriptions(userId);
+  return {
+    success: true,
+    data: result.currentSubscription,
+    currentSubscription: result.currentSubscription,
   };
 };
