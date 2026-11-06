@@ -6,6 +6,7 @@ import {
   getBookedSlots,
   getUserMentorBookings,
   getUserSubscriptions,
+  getCurrentSubscription,
 } from "./mentorBooking.service.js";
 
 export const createOrderController =
@@ -109,5 +110,10 @@ async (req, res) => {
       req.user.id
     );
 
+  res.json(result);
+};
+
+export const getCurrentSubscriptionController = async (req, res) => {
+  const result = await getCurrentSubscription(req.user.id);
   res.json(result);
 };

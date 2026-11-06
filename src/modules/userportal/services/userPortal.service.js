@@ -77,37 +77,61 @@ export const getDashboardData = async (userId) => {
     //       },
     //     },
     //   });
-const subscriptions =
-  await prisma.subscriptions.findMany({
-    where: {
-      userId: Number(userId),
-      status: "active",
-      endDate: {
-        gte: new Date(),
-      },
-    },
-    include: {
-      plan: {
-        include: {
-          modules: true,
+    const activeSubscriptions = await prisma.subscriptions.findMany({
+      where: {
+        userId: Number(userId),
+        status: "active",
+        endDate: {
+          gte: new Date(),
         },
       },
-    },
-  });
-    // Subscription se unlocked modules
-    // const unlockedModuleIds =
-    //   subscription?.plan?.modules?.map(
-    //     (m) => m.id
-    //   ) || [];
-const unlockedModuleIds = [
-  ...new Set(
-    subscriptions.flatMap((subscription) =>
-      subscription.plan.modules.map(
-        (module) => module.id
-      )
-    )
-  ),
-];
+      include: {
+        plan: {
+          include: {
+            modules: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    const currentSub = activeSubscriptions[0] || null;
+    const currentSubscription = currentSub
+      ? {
+          id: currentSub.id,
+          userId: currentSub.userId,
+          planId: currentSub.planId,
+          planName: currentSub.plan?.name || currentSub.planType || "Plan",
+          planType: currentSub.plan?.plan_type || currentSub.planType || null,
+          startDate: currentSub.startDate,
+          endDate: currentSub.endDate,
+          status: "active",
+          isCurrent: true,
+        }
+      : null;
+
+    const formattedSubscriptions = activeSubscriptions.map((sub, idx) => ({
+      id: sub.id,
+      userId: sub.userId,
+      planId: sub.planId,
+      planName: sub.plan?.name || sub.planType || "Plan",
+      planType: sub.plan?.plan_type || sub.planType || null,
+      startDate: sub.startDate,
+      endDate: sub.endDate,
+      status: "active",
+      isCurrent: idx === 0,
+      plan: sub.plan,
+    }));
+
+    const unlockedModuleIds = [
+      ...new Set(
+        activeSubscriptions.flatMap((subscription) =>
+          subscription.plan?.modules?.map((module) => module.id) || []
+        )
+      ),
+    ];
     const instituteHasAssessmentAccess = canAccessAssessment(user);
 
     // Check if user has free 1st attempt available (0 completed attempts)
@@ -200,10 +224,13 @@ const unlockedModuleIds = [
         plans,
         scholarships,
         institutions,
-         entranceExams,
-        subscriptions,
-          pendingMentorReviews:
-      reviews,
+        entranceExams,
+        currentSubscription,
+        currentPlanId: currentSubscription?.planId || null,
+        currentPlanName: currentSubscription?.planName || null,
+        subscriptions: formattedSubscriptions,
+        pendingMentorReviews:
+          reviews,
       },
     };
 

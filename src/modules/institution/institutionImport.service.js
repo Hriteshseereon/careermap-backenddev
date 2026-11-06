@@ -102,6 +102,24 @@ const secondCategories =
 
 const subcategories =
   await prisma.subcategory.findMany();
+    const normalizeInstituteType = (type) => {
+      if (!type) return null;
+      const t = String(type).trim().toLowerCase();
+      if (t === "government" || t === "govt" || t === "govt." || t === "gov") {
+        return "Govt";
+      }
+      if (t === "private" || t === "pvt" || t === "pvt.") {
+        return "Pvt";
+      }
+      if (t === "autonomous") {
+        return "Autonomous";
+      }
+      if (t.includes("deemed")) {
+        return "Deemed";
+      }
+      return String(type).trim();
+    };
+
     /**
      * Helper to clean text for fuzzy matching (& vs and, extra spaces)
      */
@@ -244,6 +262,19 @@ const subcategories =
           subcategoryMap.get(key1) || subcategoryMap.get(key2) || null;
       }
 
+      let course_offered = [];
+      const rawCourses = row["COURSE OFFERED"];
+      if (rawCourses) {
+        if (Array.isArray(rawCourses)) {
+          course_offered = rawCourses.map((c) => String(c).trim()).filter(Boolean);
+        } else {
+          course_offered = String(rawCourses)
+            .split(/[,;\n]/)
+            .map((c) => c.trim())
+            .filter(Boolean);
+        }
+      }
+
       validRows.push({
         categoryId,
         secondcategoryId,
@@ -252,10 +283,15 @@ const subcategories =
         logo: String(row["LOGO"] || "").trim() || null,
         address: String(row["ADDRESS"] || "").trim() || null,
         url: String(row["WEBSITE LINK"] || "").trim() || null,
-        countruy: String(row["COUNTRY"] || "").trim() || null,
+        countruy: String(row["COUNTRY"] || "").trim() || "India",
         state: String(row["STATE"] || "").trim() || null,
-        institute_type: String(row["TYPE"] || "").trim() || null,
-        course_offered: [],
+        city: String(row["CITY"] || "").trim() || null,
+        district: String(row["DISTRICT"] || "").trim() || null,
+        institute_type: normalizeInstituteType(row["TYPE"]),
+        about: String(row["ABOUT"] || "").trim() || null,
+        admission_process: String(row["ADMISSION PROCESS"] || "").trim() || null,
+        tentative_date: String(row["TENTATIVE DATE"] || "").trim() || null,
+        course_offered,
         is_top: false,
       });
     }
