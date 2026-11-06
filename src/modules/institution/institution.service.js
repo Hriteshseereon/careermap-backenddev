@@ -89,8 +89,33 @@ export const getPaginatedInstitutions = async (
       };
     }
 
-    const { data, total, page, limit } =
+    let { data, total, page, limit } =
       await InstitutionRepository.findPaginated(options);
+
+    // If nothing matches the exact filters, relax the hierarchy one level at a
+    // time (subcategory -> second category -> category) and return the closest
+    // related institutions instead of an empty list.
+    let relaxedFilters = null;
+    if (total === 0) {
+      const hasValue = (v) =>
+        v !== undefined && v !== null && String(v).trim() !== "";
+      const relaxOrder = ["subcategoryId", "secondcategoryId", "categoryId"];
+      const relaxed = { ...options };
+      const dropped = [];
+
+      for (const key of relaxOrder) {
+        if (!hasValue(relaxed[key])) continue;
+        relaxed[key] = null;
+        dropped.push(key);
+
+        const retry = await InstitutionRepository.findPaginated(relaxed);
+        if (retry.total > 0) {
+          ({ data, total, page, limit } = retry);
+          relaxedFilters = dropped;
+          break;
+        }
+      }
+    }
 
     const totalPages = Math.ceil(total / limit) || 1;
 
@@ -105,6 +130,7 @@ export const getPaginatedInstitutions = async (
         hasNextPage: page < totalPages,
         hasPreviousPage: page > 1,
       },
+      relaxedFilters,
       appliedFilters: {
         streamId: options.streamId ? Number(options.streamId) || options.streamId : null,
         categoryId: options.categoryId ? Number(options.categoryId) || options.categoryId : null,
