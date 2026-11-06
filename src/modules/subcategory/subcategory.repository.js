@@ -12,6 +12,7 @@ export const SubCategoryRepository = {
         secondcategory: true,
        
       },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     });
   },
 
@@ -30,6 +31,7 @@ findBySecondCategoryId(secondcategoryId) {
     where: {
       secondcategoryId: Number(secondcategoryId),
     },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
 },
   update(id, data) {

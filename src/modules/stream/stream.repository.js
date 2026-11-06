@@ -6,7 +6,9 @@ export const StreamRepository = {
   },
 
   findAll() {
-    return prisma.stream.findMany();
+    return prisma.stream.findMany({
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    });
   },
 
   findById(id) {
