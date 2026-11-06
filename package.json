@@ -11,9 +11,6 @@
     "predev": "prisma generate",
     "dev": "nodemon src/server.js",
     "seed:institutions": "node src/scripts/reseedInstitutions.js",
-    "export:duplicates": "node src/scripts/exportDuplicates.js",
-    "check:pathtype": "node src/scripts/checkPathTypeMismatch.js",
-    "fix:pathtype": "node src/scripts/fixPathTypeMapping.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

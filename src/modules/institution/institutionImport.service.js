@@ -209,13 +209,7 @@ const subcategories =
         continue;
       }
 
-      // Check duplicate within the Excel itself
       const normalizedName = instituteName.toLowerCase();
-      if (seenNamesInExcel.has(normalizedName)) {
-        skipped++;
-        continue;
-      }
-      seenNamesInExcel.add(normalizedName);
 
       /**
        * Category Lookup (Exact match -> Fuzzy match) - Optional
@@ -261,6 +255,14 @@ const subcategories =
         subcategoryId =
           subcategoryMap.get(key1) || subcategoryMap.get(key2) || null;
       }
+
+      // Deduplicate only identical rows (same institute + same category + same subcategory + same state)
+      const comboKey = `${normalizedName}|${categoryId || normalizeValue(rawCategory)}|${secondcategoryId || normalizeValue(rawSecondary)}|${subcategoryId || normalizeValue(rawSubCategory)}|${normalizeValue(row["STATE"])}`;
+      if (seenNamesInExcel.has(comboKey)) {
+        skipped++;
+        continue;
+      }
+      seenNamesInExcel.add(comboKey);
 
       let course_offered = [];
       const rawCourses = row["COURSE OFFERED"];

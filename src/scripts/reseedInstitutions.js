@@ -73,9 +73,12 @@ async function reseedInstitutions() {
     const beforeCount = await prisma.institutions.count();
     console.log(`\n🏢 Existing Institutions in Database before deletion: ${beforeCount}`);
 
-    // 3. Clear existing institutions table cleanly
+    // 3. Clear existing institutions table cleanly and ensure unique name constraint is removed
     console.log("🗑️ Deleting all existing institutions from database...");
     await prisma.$executeRawUnsafe('TRUNCATE TABLE "Institutions" RESTART IDENTITY CASCADE;');
+    console.log("🔓 Ensuring name uniqueness constraint is removed (to allow multi-category institutions)...");
+    await prisma.$executeRawUnsafe('ALTER TABLE "Institutions" DROP CONSTRAINT IF EXISTS "Institutions_name_key";');
+    await prisma.$executeRawUnsafe('DROP INDEX IF EXISTS "Institutions_name_key";');
     const afterDeleteCount = await prisma.institutions.count();
     console.log(`✅ Table truncated! Institutions remaining: ${afterDeleteCount}\n`);
 
@@ -111,11 +114,13 @@ async function reseedInstitutions() {
     });
 
     // 5. Process & Deduplicate rows
-    console.log("\n⚙️ Processing and validating rows...");
+    // Multi-category support: An institution (e.g. university) can have rows for Engineering, Medical, Arts, etc.
+    // We allow multiple categories per institution, only filtering out 100% exact duplicate rows (same institute + same category + same state).
+    console.log("\n⚙️ Processing and validating rows (with multi-category support)...");
     const validRows = [];
-    const seenNames = new Set();
+    const seenCombos = new Set();
     let emptyNames = 0;
-    let duplicateNames = 0;
+    let exactDuplicateCount = 0;
 
     for (const row of rows) {
       const instituteName = String(row["INSTITUTE"] || "").trim();
@@ -125,15 +130,10 @@ async function reseedInstitutions() {
       }
 
       const normalizedName = instituteName.toLowerCase();
-      if (seenNames.has(normalizedName)) {
-        duplicateNames++;
-        continue;
-      }
-      seenNames.add(normalizedName);
-
       const rawCategory = String(row["CATEGORY"] || "").trim();
       const rawSecondary = String(row["SECONDARY CATEGORY"] || "").trim();
       const rawSubCategory = String(row["SUB CATEGORY"] || "").trim();
+      const state = String(row["STATE"] || "").trim();
 
       // Category lookup
       const categoryId =
@@ -158,6 +158,15 @@ async function reseedInstitutions() {
           subCategoryMap.get(`${categoryId}|${secondcategoryId}|${cleanText(rawSubCategory)}`) ||
           null;
       }
+
+      // Exact duplicate check (same institute + same category + same subcategory + same state)
+      const comboKey = `${normalizedName}|${categoryId || normalizeValue(rawCategory)}|${secondcategoryId || normalizeValue(rawSecondary)}|${subcategoryId || normalizeValue(rawSubCategory)}|${normalizeValue(state)}`;
+
+      if (seenCombos.has(comboKey)) {
+        exactDuplicateCount++;
+        continue;
+      }
+      seenCombos.add(comboKey);
 
       // Parse course_offered array
       let course_offered = [];
@@ -195,8 +204,8 @@ async function reseedInstitutions() {
     }
 
     console.log(`✅ Valid unique institutions to insert: ${validRows.length}`);
-    if (duplicateNames > 0) {
-      console.log(`⏩ Duplicates skipped in Excel: ${duplicateNames}`);
+    if (exactDuplicateCount > 0) {
+      console.log(`⏩ Exact identical duplicates skipped: ${exactDuplicateCount}`);
     }
     if (emptyNames > 0) {
       console.log(`⚠️ Rows skipped (Empty name): ${emptyNames}`);

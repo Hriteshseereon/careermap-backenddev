@@ -17,3 +17,7 @@ node_modules/.prisma
 # OS files
 .DS_Store
 Thumbs.db
+
+# Excel / CSV Data files
+*.xlsx
+*.xls

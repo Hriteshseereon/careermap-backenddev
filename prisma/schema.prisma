@@ -151,7 +151,7 @@ model Stream {
 
 model Institutions {
   id                Int             @id @default(autoincrement())
-  name              String          @unique
+  name              String
   logo              String?
   address           String?
   admission_process String?
@@ -175,6 +175,11 @@ model Institutions {
   updatedAt         DateTime        @updatedAt
 
   details Details[]
+
+  @@index([name])
+  @@index([categoryId])
+  @@index([secondcategoryId])
+  @@index([subcategoryId])
 }
 
 model Category {
