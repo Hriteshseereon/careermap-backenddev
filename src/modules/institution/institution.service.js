@@ -19,7 +19,7 @@ export const createInstitution = async (body, file) => {
     }
 
     const institution = await InstitutionRepository.createInstitution({
-       categoryId: body.categoryId
+      categoryId: body.categoryId
         ? Number(body.categoryId)
         : null,
 
@@ -67,34 +67,32 @@ export const getInstitutions = async () => {
   }
 };
 
-// 🔹 Get Institutions - Paginated for User Portal
+// 🔹 Get Institutions - Paginated for User Portal & Mobile App
 export const getPaginatedInstitutions = async (
-  page = 1,
-  limit = 30,
-  country = "",
-  state = "",
-  type = "",
-  category = ""
+  queryOptions = {},
+  legacyLimit = 20,
+  ...legacyArgs
 ) => {
   try {
-    page = Math.max(Number(page) || 1, 1);
-
-    limit = Math.min(
-      Math.max(Number(limit) || 30, 1),
-      100
-    );
-
-    const { data, total } =
-      await InstitutionRepository.findPaginated(
-        page,
-        limit,
+    let options = {};
+    if (typeof queryOptions === "object" && queryOptions !== null) {
+      options = queryOptions;
+    } else {
+      const [country = "", state = "", type = "", category = ""] = legacyArgs;
+      options = {
+        page: queryOptions,
+        limit: legacyLimit,
         country,
         state,
         type,
-        category
-      );
+        categoryId: category,
+      };
+    }
 
-    const totalPages = Math.ceil(total / limit);
+    const { data, total, page, limit } =
+      await InstitutionRepository.findPaginated(options);
+
+    const totalPages = Math.ceil(total / limit) || 1;
 
     return {
       success: true,
@@ -107,19 +105,33 @@ export const getPaginatedInstitutions = async (
         hasNextPage: page < totalPages,
         hasPreviousPage: page > 1,
       },
+      appliedFilters: {
+        streamId: options.streamId ? Number(options.streamId) || options.streamId : null,
+        categoryId: options.categoryId ? Number(options.categoryId) || options.categoryId : null,
+        secondcategoryId: options.secondcategoryId
+          ? Number(options.secondcategoryId) || options.secondcategoryId
+          : null,
+        subcategoryId: options.subcategoryId
+          ? Number(options.subcategoryId) || options.subcategoryId
+          : null,
+        country: options.country || null,
+        state: options.state || null,
+        city: options.city || null,
+        district: options.district || null,
+        type: options.type || null,
+        is_top: options.is_top !== undefined ? options.is_top : null,
+        search: options.search || null,
+      },
     };
   } catch (error) {
-    console.error(
-      "❌ getPaginatedInstitutions Error:",
-      error
-    );
-
+    console.error("❌ getPaginatedInstitutions Error:", error);
     return {
       success: false,
       message: error.message,
     };
   }
 };
+
 // 🔹 Update
 export const updateInstitution = async (id, body, file) => {
   try {

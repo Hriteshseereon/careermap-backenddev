@@ -1,4 +1,11 @@
-import { createInstitution,updateInstitution,getInstitutions,deleteInstitution,getInstitutionById,  getPaginatedInstitutions, } from "./institution.service.js";
+import {
+  createInstitution,
+  updateInstitution,
+  getInstitutions,
+  deleteInstitution,
+  getInstitutionById,
+  getPaginatedInstitutions,
+} from "./institution.service.js";
 
 export const createInstitutionController = async (req, res) => {
   const result = await createInstitution(req.body, req.file);
@@ -6,8 +13,13 @@ export const createInstitutionController = async (req, res) => {
 };
 
 export const getInstitutionsController = async (req, res) => {
-  const result = await getInstitutions();
-  res.status(200).json(result);
+  // If explicitly requested all without pagination:
+  if (req.query.all === "true") {
+    const result = await getInstitutions();
+    return res.status(200).json(result);
+  }
+  // Otherwise default to paginated response supporting all query filters
+  return getPaginatedInstitutionsController(req, res);
 };
 
 export const getInstitutionByIdController = async (req, res) => {
@@ -19,7 +31,6 @@ export const getInstitutionByIdController = async (req, res) => {
     const result = await getInstitutionById(id);
 
     return res.status(result.success ? 200 : 404).json(result);
-
   } catch (error) {
     console.error("❌ Controller Error:", error);
     return res.status(500).json({
@@ -28,6 +39,7 @@ export const getInstitutionByIdController = async (req, res) => {
     });
   }
 };
+
 export const updateInstitutionController = async (req, res) => {
   const result = await updateInstitution(req.params.id, req.body, req.file);
   res.status(result.success ? 200 : 400).json(result);
@@ -38,37 +50,75 @@ export const deleteInstitutionController = async (req, res) => {
   res.status(result.success ? 200 : 400).json(result);
 };
 
-export const getPaginatedInstitutionsController = async (
-  req,
-  res
-) => {
+export const getPaginatedInstitutionsController = async (req, res) => {
   try {
     const {
       page = 1,
-      limit = 30,
-      country = "",
-      state = "",
-      type = "",
-      category = "",
-      categoryId = "",
-    } = req.query;
-
-    const result = await getPaginatedInstitutions(
-      page,
-      limit,
+      limit = 20,
+      size,
+      perPage,
+      streamId,
+      stream,
+      categoryId,
+      category,
+      secondcategoryId,
+      secondCategoryId,
+      secondaryCategoryId,
+      secondcategory,
+      secondCategory,
+      subcategoryId,
+      subCategoryId,
+      subcategory,
+      subCategory,
       country,
       state,
+      city,
+      district,
       type,
-      category || categoryId
-    );
+      institute_type,
+      instituteType,
+      is_top,
+      isTop,
+      search,
+      q,
+      sortBy,
+      sortOrder,
+    } = req.query;
+
+    const queryOptions = {
+      page: Number(page) || 1,
+      limit: Number(limit || size || perPage) || 20,
+      streamId: streamId || stream || null,
+      categoryId: categoryId || category || null,
+      secondcategoryId:
+        secondcategoryId ||
+        secondCategoryId ||
+        secondaryCategoryId ||
+        secondcategory ||
+        secondCategory ||
+        null,
+      subcategoryId:
+        subcategoryId ||
+        subCategoryId ||
+        subcategory ||
+        subCategory ||
+        null,
+      country: country || "",
+      state: state || "",
+      city: city || "",
+      district: district || "",
+      type: type || institute_type || instituteType || "",
+      is_top: is_top !== undefined ? is_top : isTop,
+      search: search || q || "",
+      sortBy: sortBy || "is_top",
+      sortOrder: sortOrder || "desc",
+    };
+
+    const result = await getPaginatedInstitutions(queryOptions);
 
     return res.status(result.success ? 200 : 400).json(result);
-
   } catch (error) {
-    console.error(
-      "❌ getPaginatedInstitutionsController Error:",
-      error
-    );
+    console.error("❌ getPaginatedInstitutionsController Error:", error);
 
     return res.status(500).json({
       success: false,
