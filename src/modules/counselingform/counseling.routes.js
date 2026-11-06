@@ -4,17 +4,20 @@ import {
   getCounselingsController,
   getMyCounselingReportsController,
   getCounselingsByCounselorController,
+  getInstituteCounselingReportsController,
   getCounselingByIdController,
   updateCounselingController,
   deleteCounselingController,
   downloadCounselingReportController,
 } from "./counseling.controller.js";
 import { protectAdminOrStaff } from "../../middlewares/protectAdminOrStaff.js";
+import { protectInstitute } from "../../middlewares/protectInstitute.js";
 
 const router = express.Router();
 
 // 🔹 Specific sub-routes (must come BEFORE parameterized /:id route)
 router.get("/my-reports", protectAdminOrStaff, getMyCounselingReportsController);
+router.get("/institute-reports", protectInstitute, getInstituteCounselingReportsController);
 router.get("/counselor/:counselorName", protectAdminOrStaff, getCounselingsByCounselorController);
 
 // 🔹 Main CRUD routes

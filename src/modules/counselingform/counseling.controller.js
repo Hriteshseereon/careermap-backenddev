@@ -195,7 +195,12 @@ export const createCounselingController = async (req, res) => {
 };
 
 export const getCounselingsController = async (req, res) => {
-  const result = await getCounselings({ staff: req.staff, admin: req.admin });
+  const result = await getCounselings({ staff: req.staff, admin: req.admin, institute: req.institute });
+  res.status(result.success ? 200 : (result.statusCode || 400)).json(result);
+};
+
+export const getInstituteCounselingReportsController = async (req, res) => {
+  const result = await getCounselings({ institute: req.institute });
   res.status(result.success ? 200 : (result.statusCode || 400)).json(result);
 };
 
