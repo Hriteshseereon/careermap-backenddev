@@ -29,6 +29,10 @@ const resolveUser = async (userContext = {}) => {
     };
   }
 
+  if (userContext?.institute) {
+    return { isInstitute: true, instituteId: Number(userContext.institute.instituteId) };
+  }
+
   // Fallback if neither is present (e.g., internal call)
   return { isAdmin: true };
 };
@@ -341,6 +345,8 @@ export const createCounseling = async (body, userContext) => {
       class: body.class,
       stream: body.stream,
       school: body.school,
+      schoolInstitutionId: body.schoolInstitutionId ? Number(body.schoolInstitutionId) : null,
+      instituteId: body.instituteId ? Number(body.instituteId) : null,
       counselingDate: body.counselingDate
         ? new Date(body.counselingDate)
         : null,
@@ -386,7 +392,7 @@ export const getCounselings = async (userContext) => {
   try {
     const user = await resolveUser(userContext);
 
-    const allRecords = await CounselingRepository.findAll();
+    const allRecords = await CounselingRepository.findAll(user.isInstitute ? { instituteId: user.instituteId } : {});
 
     if (user.isAdmin) {
       return {
@@ -397,7 +403,9 @@ export const getCounselings = async (userContext) => {
     }
 
     // Staff/Counselor only sees their own created records
-    const filtered = allRecords.filter((rec) => canAccessCounseling(rec, user));
+    const filtered = user.isInstitute
+      ? allRecords
+      : allRecords.filter((rec) => canAccessCounseling(rec, user));
 
     return {
       success: true,
@@ -425,7 +433,7 @@ export const getCounselingById = async (id, userContext) => {
       };
     }
 
-    if (!canAccessCounseling(data, user)) {
+    if (!canAccessCounseling(data, user) && !(user.isInstitute && data.instituteId === user.instituteId)) {
       return {
         success: false,
         statusCode: 403,
@@ -513,6 +521,8 @@ export const updateCounseling = async (id, body, userContext) => {
       class: body.class !== undefined ? body.class : existing.class,
       stream: body.stream !== undefined ? body.stream : existing.stream,
       school: body.school !== undefined ? body.school : existing.school,
+      schoolInstitutionId: body.schoolInstitutionId !== undefined ? (body.schoolInstitutionId ? Number(body.schoolInstitutionId) : null) : existing.schoolInstitutionId,
+      instituteId: body.instituteId !== undefined ? (body.instituteId ? Number(body.instituteId) : null) : existing.instituteId,
       counselingDate: body.counselingDate !== undefined
         ? (body.counselingDate ? new Date(body.counselingDate) : null)
         : existing.counselingDate,
@@ -606,7 +616,7 @@ export const generateCounselingReport = async (id, userContext) => {
     };
   }
 
-  if (!canAccessCounseling(counseling, user)) {
+  if (!canAccessCounseling(counseling, user) && !(user.isInstitute && counseling.instituteId === user.instituteId)) {
     return {
       success: false,
       statusCode: 403,
