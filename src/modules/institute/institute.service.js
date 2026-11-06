@@ -248,17 +248,8 @@ async (instituteId) => {
     (s) => s.assessmentAttempts && s.assessmentAttempts.length > 0
   ).length;
 
-  const studentEmails = students
-    .map((s) => s.email?.trim().toLowerCase())
-    .filter(Boolean);
-
   const counselingTotal = await prisma.counselingForm.count({
-    where: {
-      OR: [
-        { instituteId: Number(instituteId) },
-        ...(studentEmails.length > 0 ? [{ email: { in: studentEmails, mode: "insensitive" } }] : []),
-      ],
-    },
+    where: { instituteId: Number(instituteId) },
   });
 
   return {
@@ -431,21 +422,8 @@ export const getInstitutePsychometricAssessments = async (instituteId) => {
 export const getInstituteCounselingReports = async (instituteId) => {
   const instId = Number(instituteId);
 
-  const instituteStudents = await prisma.users.findMany({
-    where: { instituteId: instId },
-    select: { email: true },
-  });
-
-  const studentEmails = instituteStudents
-    .map((s) => s.email?.trim().toLowerCase())
-    .filter(Boolean);
-
-  const whereClause = {
-    OR: [
-      { instituteId: instId },
-      ...(studentEmails.length > 0 ? [{ email: { in: studentEmails, mode: "insensitive" } }] : []),
-    ],
-  };
+  // Only reports the counselor explicitly mapped to this institute.
+  const whereClause = { instituteId: instId };
 
   const records = await CounselingRepository.findAll(whereClause);
 

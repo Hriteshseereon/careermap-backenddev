@@ -395,21 +395,7 @@ export const getCounselings = async (userContext, query = {}) => {
 
     let where = {};
     if (user.isInstitute) {
-      // Find students belonging to this institute to match both direct instituteId and student email
-      const instituteStudents = await prisma.users.findMany({
-        where: { instituteId: user.instituteId },
-        select: { email: true },
-      });
-      const studentEmails = instituteStudents
-        .map((s) => s.email?.trim().toLowerCase())
-        .filter(Boolean);
-
-      where = {
-        OR: [
-          { instituteId: user.instituteId },
-          ...(studentEmails.length > 0 ? [{ email: { in: studentEmails } }] : []),
-        ],
-      };
+      where = { instituteId: user.instituteId };
     } else if (query?.counselorName) {
       where = {
         counselorName: { equals: query.counselorName.trim(), mode: "insensitive" },
