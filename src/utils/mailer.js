@@ -82,10 +82,6 @@ export const sendViaBrevo = async ({ from, to, subject, html }) => {
   }
   return data;
 };
-    throw new Error(data.message || JSON.stringify(data));
-  }
-  return data;
-};
 
 /**
  * 2. Sends email via Resend HTTPS REST API (Port 443)
