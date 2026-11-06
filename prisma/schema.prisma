@@ -175,6 +175,7 @@ model Institutions {
   updatedAt         DateTime        @updatedAt
 
   details Details[]
+  counselingSchoolForms CounselingForm[] @relation("CounselingSchoolInstitution")
 
   @@index([name])
   @@index([categoryId])
@@ -921,6 +922,10 @@ model CounselingForm {
   class                  String?
   stream                 String?
   school                 String?
+  schoolInstitutionId    Int?
+  schoolInstitution      Institutions? @relation("CounselingSchoolInstitution", fields: [schoolInstitutionId], references: [id], onDelete: SetNull)
+  instituteId            Int?
+  institute              Institutes? @relation(fields: [instituteId], references: [id], onDelete: SetNull)
   counselingDate         DateTime?
   phoneNumber            String?
   email                  String?
@@ -953,6 +958,9 @@ model CounselingForm {
 
   createdAt DateTime @default(now())
 updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([instituteId])
+  @@index([schoolInstitutionId])
 }
 model StaffUser {
   id Int @id @default(autoincrement())
@@ -1031,6 +1039,7 @@ model Institutes {
 
   updatedAt DateTime @updatedAt
   users     Users[]
+  counselingForms CounselingForm[]
 }
 
 model PsychometricAssessment {

@@ -19,6 +19,7 @@ export const CounselingRepository = {
   findAll(where = {}) {
     return prisma.counselingForm.findMany({
       where,
+      include: { schoolInstitution: { select: { id: true, name: true } } },
       orderBy: {
         createdAt: "desc",
       },
@@ -27,6 +28,7 @@ export const CounselingRepository = {
   findById(id) {
     return prisma.counselingForm.findUnique({
       where: { id },
+      include: { schoolInstitution: { select: { id: true, name: true } } },
     });
   },
   async update(id, data) {
