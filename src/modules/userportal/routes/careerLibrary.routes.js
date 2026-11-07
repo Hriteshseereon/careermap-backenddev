@@ -7,7 +7,10 @@ import {
   getDetailsController,
   getNextLevelController,
 } from "../controller/careerLibrary.controller.js";
-import { getPaginatedInstitutionsController } from "../../institution/institution.controller.js";
+import {
+  getPaginatedInstitutionsController,
+  getInstitutionStatesController,
+} from "../../institution/institution.controller.js";
 
 const router = Router();
 
@@ -35,5 +38,6 @@ router.get("/next/:type/:id", getNextLevelController);
 // 🏛️ Dynamic Paginated Institutions for Career Archive / Career Library
 // Query params supported: streamId, categoryId, secondcategoryId, subcategoryId, search, state, city, type, page, limit
 router.get("/institutions", getPaginatedInstitutionsController);
+router.get("/institutions/states", getInstitutionStatesController);
 
 export default router;

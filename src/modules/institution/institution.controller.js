@@ -5,6 +5,7 @@ import {
   deleteInstitution,
   getInstitutionById,
   getPaginatedInstitutions,
+  getInstitutionStates,
 } from "./institution.service.js";
 
 export const createInstitutionController = async (req, res) => {
@@ -72,6 +73,9 @@ export const getPaginatedInstitutionsController = async (req, res) => {
       subCategory,
       country,
       state,
+      excludeState,
+      region,
+      homeState,
       city,
       district,
       type,
@@ -104,7 +108,10 @@ export const getPaginatedInstitutionsController = async (req, res) => {
         subCategory ||
         null,
       country: country || "",
-      state: state || "",
+      // region=inside|outside is a shortcut for state / excludeState = homeState
+      state: state || (region === "inside" ? homeState || "Odisha" : ""),
+      excludeState:
+        excludeState || (region === "outside" ? homeState || "Odisha" : ""),
       city: city || "",
       district: district || "",
       type: type || institute_type || instituteType || "",
@@ -124,5 +131,47 @@ export const getPaginatedInstitutionsController = async (req, res) => {
       success: false,
       message: error.message,
     });
+  }
+};
+
+// States dropdown for the institutions filter: every state that has data for
+// the current category / type / search filters, with counts, plus the
+// inside / outside home-state totals (default home state: Odisha).
+export const getInstitutionStatesController = async (req, res) => {
+  try {
+    const {
+      streamId,
+      stream,
+      categoryId,
+      category,
+      secondcategoryId,
+      secondCategoryId,
+      subcategoryId,
+      subCategoryId,
+      type,
+      institute_type,
+      is_top,
+      search,
+      q,
+      homeState,
+    } = req.query;
+
+    const result = await getInstitutionStates(
+      {
+        streamId: streamId || stream || null,
+        categoryId: categoryId || category || null,
+        secondcategoryId: secondcategoryId || secondCategoryId || null,
+        subcategoryId: subcategoryId || subCategoryId || null,
+        type: type || institute_type || "",
+        is_top,
+        search: search || q || "",
+      },
+      homeState || "Odisha"
+    );
+
+    return res.status(result.success ? 200 : 400).json(result);
+  } catch (error) {
+    console.error("❌ getInstitutionStatesController Error:", error);
+    return res.status(500).json({ success: false, message: error.message });
   }
 };

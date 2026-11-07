@@ -1,5 +1,6 @@
 import { uploadToS3 } from "../../lib/s3Upload.js";
 import { InstitutionRepository } from "./institution.repository.js";
+import { canonicalState } from "../../utils/stateNormalizer.js";
 
 // 🔹 Create
 export const createInstitution = async (body, file) => {
@@ -142,6 +143,7 @@ export const getPaginatedInstitutions = async (
           : null,
         country: options.country || null,
         state: options.state || null,
+        excludeState: options.excludeState || null,
         city: options.city || null,
         district: options.district || null,
         type: options.type || null,
@@ -155,6 +157,51 @@ export const getPaginatedInstitutions = async (
       success: false,
       message: error.message,
     };
+  }
+};
+
+// 🔹 States dropdown + inside/outside home-state counts for the filters
+export const getInstitutionStates = async (options = {}, homeState = "Odisha") => {
+  try {
+    let { states, unassigned } =
+      await InstitutionRepository.getStateFacets(options);
+
+    // Same relaxation as the list API (subcategory -> second category ->
+    // category) so the dropdown matches the institutions actually shown.
+    let relaxedFilters = null;
+    if (states.length === 0 && unassigned === 0) {
+      const relaxed = { ...options };
+      const dropped = [];
+      for (const key of ["subcategoryId", "secondcategoryId", "categoryId"]) {
+        if (relaxed[key] === undefined || relaxed[key] === null || String(relaxed[key]).trim() === "") continue;
+        relaxed[key] = null;
+        dropped.push(key);
+        const retry = await InstitutionRepository.getStateFacets(relaxed);
+        if (retry.states.length > 0 || retry.unassigned > 0) {
+          ({ states, unassigned } = retry);
+          relaxedFilters = dropped;
+          break;
+        }
+      }
+    }
+
+    const home = canonicalState(homeState) || homeState;
+    const insideCount = states.find((s) => s.state === home)?.count || 0;
+    const total = states.reduce((sum, s) => sum + s.count, 0) + unassigned;
+
+    return {
+      success: true,
+      homeState: home,
+      total,
+      insideCount,
+      outsideCount: total - insideCount,
+      unassigned,
+      relaxedFilters,
+      states,
+    };
+  } catch (error) {
+    console.error("❌ getInstitutionStates Error:", error);
+    return { success: false, message: error.message };
   }
 };
 
