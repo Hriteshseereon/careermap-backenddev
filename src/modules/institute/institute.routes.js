@@ -13,6 +13,13 @@ import {
   getInstituteCounselingReportsController,
 } from "./institute.controller.js";
 
+import {
+  instituteCreateStudentController,
+  instituteBulkCreateStudentsController,
+  instituteUpdateStudentController,
+  instituteDeleteStudentController,
+} from "../instituteStudent/instituteStudent.controller.js";
+import upload from "../../middlewares/upload.js";
 import { protectAdminOrStaff } from "../../middlewares/protectAdminOrStaff.js";
 import { protectInstitute } from "../../middlewares/protectInstitute.js";
 
@@ -35,6 +42,32 @@ router.get(
   "/students",
   protectInstitute,
   getInstituteStudentsController
+);
+
+// Institute adds / manages its own students (seat limit is set by admin)
+router.post(
+  "/students",
+  protectInstitute,
+  instituteCreateStudentController
+);
+
+router.post(
+  "/students/bulk-upload",
+  protectInstitute,
+  upload.single("file"),
+  instituteBulkCreateStudentsController
+);
+
+router.put(
+  "/students/:id",
+  protectInstitute,
+  instituteUpdateStudentController
+);
+
+router.delete(
+  "/students/:id",
+  protectInstitute,
+  instituteDeleteStudentController
 );
 
 router.get(

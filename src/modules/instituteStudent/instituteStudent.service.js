@@ -38,7 +38,9 @@ export const createStudent = async (body) => {
     if (usersCount >= institute.limit) {
       return {
         success: false,
-        message: "Institute student limit exceeded",
+        message: `Institute student limit reached (${institute.limit}). Contact admin to increase the limit.`,
+        limit: institute.limit,
+        used: usersCount,
       };
     }
 
@@ -253,7 +255,39 @@ async (
   const success = [];
   const failed = [];
 
+  const institute =
+    await InstituteStudentRepository.getInstitute(instituteId);
+
+  if (!institute) {
+    return { success: false, message: "Institute not found" };
+  }
+
+  if (!institute.student_allow) {
+    return {
+      success: false,
+      message: "Student creation disabled for this institute",
+    };
+  }
+
+  const usedSeats = institute._count?.users ?? 0;
+  let seatsLeft = Math.max(0, institute.limit - usedSeats);
+
+  if (seatsLeft === 0) {
+    return {
+      success: false,
+      message: `Institute student limit reached (${institute.limit}). Contact admin to increase the limit.`,
+    };
+  }
+
   for (const student of students) {
+
+    if (seatsLeft === 0) {
+      failed.push({
+        email: student.Email,
+        reason: "Institute student limit exceeded",
+      });
+      continue;
+    }
 
     try {
 
@@ -299,6 +333,7 @@ async (
       });
 
       success.push(created);
+      seatsLeft--;
 
       // Send email asynchronously in background so bulk creation doesn't hang
       sendStudentCredentials(

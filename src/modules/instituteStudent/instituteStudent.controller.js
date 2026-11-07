@@ -86,6 +86,54 @@ async(req,res)=>{
   res.json(result);
 };
 
+// ---------- Institute portal (instituteId always comes from the login token) ----------
+
+const myInstituteId = (req) => Number(req.institute.instituteId);
+
+export const instituteCreateStudentController = async (req, res) => {
+  const result = await createStudent({
+    ...req.body,
+    instituteId: myInstituteId(req),
+  });
+
+  // 403 when the seat limit / permission blocks it, so the UI can show the message.
+  const blocked =
+    !result.success &&
+    (/limit/i.test(result.message) || /disabled/i.test(result.message));
+
+  res.status(result.success ? 201 : blocked ? 403 : 400).json(result);
+};
+
+export const instituteListStudentsController = async (req, res) => {
+  res.json(await getStudentsByInstitute(myInstituteId(req)));
+};
+
+const ownedStudent = async (req, res) => {
+  const found = await getStudentById(req.params.id);
+  if (!found.success || found.data.instituteId !== myInstituteId(req)) {
+    res.status(404).json({ success: false, message: "Student not found" });
+    return null;
+  }
+  return found.data;
+};
+
+export const instituteUpdateStudentController = async (req, res) => {
+  if (!(await ownedStudent(req, res))) return;
+
+  const { instituteId, email, ...safeBody } = req.body;
+  res.json(await updateStudent(req.params.id, safeBody));
+};
+
+export const instituteDeleteStudentController = async (req, res) => {
+  if (!(await ownedStudent(req, res))) return;
+  res.json(await deleteStudent(req.params.id));
+};
+
+export const instituteBulkCreateStudentsController = async (req, res) => {
+  req.body = { ...req.body, instituteId: myInstituteId(req) };
+  return bulkCreateStudentsController(req, res);
+};
+
 export const bulkCreateStudentsController =
 async (req, res) => {
 
@@ -114,5 +162,5 @@ async (req, res) => {
       req.body.instituteId
     );
 
-  res.json(result);
+  res.status(result.success ? 200 : 403).json(result);
 };
